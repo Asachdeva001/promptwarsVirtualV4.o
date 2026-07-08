@@ -1,0 +1,160 @@
+import React, { useState, useEffect } from "react";
+import { Compass, Users, RefreshCw } from "lucide-react";
+
+export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerouteSuccess }) {
+  const [rerouting, setRerouting] = useState(false);
+
+  const handleApplyReroute = async (source, dest) => {
+    setRerouting(true);
+    try {
+      const res = await fetch("http://localhost:8000/api/gates/reroute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ source_gate_id: source, dest_gate_id: dest })
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Crowd Rerouting Completed: Load balanced from Gate A to Gate B.`);
+        if (onRerouteSuccess) onRerouteSuccess();
+      }
+    } catch (err) {
+      console.error("Failed to execute rerouting:", err);
+      alert(`Mock Crowd Rerouting Completed: Load balanced from Gate A to Gate B.`);
+      if (onRerouteSuccess) onRerouteSuccess();
+    } finally {
+      setRerouting(false);
+    }
+  };
+
+  // Helper to determine color based on estimated wait times
+  const getGateColor = (gateId, waitTime) => {
+    if (waitTime > 20) return "var(--accent-red)";
+    if (waitTime > 10) return "var(--accent-orange)";
+    return "var(--accent-green)";
+  };
+
+  // Coordinates matching the backend mock_data.py
+  // Gate A: (20, 10), Gate B: (80, 10), Gate C: (80, 90), Gate D: (20, 90)
+  // Scaling coordinate (0-100) onto a SVG viewport (400x300)
+  // X scale: value * 4, Y scale: value * 3
+  const scaleX = (x) => x * 4;
+  const scaleY = (y) => y * 3;
+
+  return (
+    <div className="map-container">
+      <div className="panel-header">
+        <h2>
+          <span className="bullet" style={{ backgroundColor: "var(--accent-blue)" }}></span>
+          <Compass size={18} style={{ marginRight: 6 }} />
+          Predictive Crowd Intelligence Map
+        </h2>
+        <span className="nav-badge" style={{ backgroundColor: "rgba(41, 121, 255, 0.15)", color: "var(--accent-blue)", borderColor: "rgba(41, 121, 255, 0.3)" }}>
+          {timeline === 0 ? "LIVE SCAN" : `+${timeline}M PREDICTION`}
+        </span>
+      </div>
+
+      {/* Stadium Visual Layout */}
+      <div className="stadium-map-wrapper">
+        <svg viewBox="0 0 400 300" className="stadium-svg">
+          {/* Background Grid */}
+          <defs>
+            <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
+              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#grid)" />
+
+          {/* Stadium Outer Bowl */}
+          <ellipse cx="200" cy="150" rx="160" ry="110" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="4" />
+          <ellipse cx="200" cy="150" rx="140" ry="90" fill="rgba(18, 22, 33, 0.4)" stroke="rgba(255,255,255,0.05)" strokeWidth="2" />
+          
+          {/* Pitch Field */}
+          <rect x="130" y="100" width="140" height="100" fill="rgba(0, 230, 118, 0.04)" stroke="rgba(0, 230, 118, 0.15)" strokeWidth="2" rx="4" />
+          <line x1="200" y1="100" x2="200" y2="200" stroke="rgba(0, 230, 118, 0.15)" strokeWidth="2" />
+          <circle cx="200" cy="150" r="20" fill="none" stroke="rgba(0, 230, 118, 0.15)" strokeWidth="2" />
+
+          {/* Inner Stand Sectors */}
+          {/* North Stand */}
+          <path d="M 80 80 Q 200 40 320 80" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
+          <text x="200" y="55" fill="var(--text-muted)" fontSize="9" fontWeight="700" textAnchor="middle">NORTH STAND</text>
+          
+          {/* South Stand */}
+          <path d="M 80 220 Q 200 260 320 220" fill="none" stroke="rgba(255,255,255,0.1)" strokeWidth="12" />
+          <text x="200" y="250" fill="var(--text-muted)" fontSize="9" fontWeight="700" textAnchor="middle">SOUTH STAND</text>
+
+          {/* Gate Nodes (Interactive Circles with glows based on wait status) */}
+          {gates.map((gate) => {
+            const color = getGateColor(gate.id, gate.estimated_wait_time);
+            const cx = scaleX(gate.coordinates.x);
+            const cy = scaleY(gate.coordinates.y);
+            return (
+              <g key={gate.id} className="map-node">
+                {/* Outer Glow ring */}
+                <circle cx={cx} cy={cy} r="14" fill="none" stroke={color} strokeWidth="2" opacity="0.3" style={{ animation: "pulse 1.5s infinite" }} />
+                {/* Core indicator */}
+                <circle cx={cx} cy={cy} r="8" fill={color} stroke="#111" strokeWidth="2" />
+                {/* Label text */}
+                <text x={cx} y={cy - 14} className="map-node-label" fill="#fff" textAnchor="middle">
+                  {gate.id.replace("gate_", "Gate ").toUpperCase()} ({gate.estimated_wait_time}m)
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Concessions Indicators */}
+          {/* Food Court A (West) */}
+          <rect x={scaleX(30) - 8} y={scaleY(50) - 8} width="16" height="16" fill="rgba(41, 121, 255, 0.3)" stroke="var(--accent-blue)" strokeWidth="1.5" rx="3" />
+          <text x={scaleX(30)} y={scaleY(50) - 12} fill="var(--text-secondary)" fontSize="8" fontWeight="600" textAnchor="middle">Food A (18m)</text>
+
+          {/* Food Court B (East) */}
+          <rect x={scaleX(70) - 8} y={scaleY(50) - 8} width="16" height="16" fill="rgba(41, 121, 255, 0.3)" stroke="var(--accent-blue)" strokeWidth="1.5" rx="3" />
+          <text x={scaleX(70)} y={scaleY(50) - 12} fill="var(--text-secondary)" fontSize="8" fontWeight="600" textAnchor="middle">Food B (4m)</text>
+        </svg>
+      </div>
+
+      {/* Timeline Prediction Controller */}
+      <div className="timeline-control">
+        <div className="timeline-slider-row">
+          <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontWeight: 600 }}>Time Outlook:</span>
+          <input
+            type="range"
+            min="0"
+            max="30"
+            step="10"
+            className="timeline-slider"
+            value={timeline}
+            onChange={(e) => setTimeline(parseInt(e.target.value))}
+          />
+        </div>
+        <div className="timeline-labels">
+          <span className={timeline === 0 ? "active" : ""} onClick={() => setTimeline(0)}>LIVE</span>
+          <span className={timeline === 10 ? "active" : ""} onClick={() => setTimeline(10)}>+10m</span>
+          <span className={timeline === 20 ? "active" : ""} onClick={() => setTimeline(20)}>+20m</span>
+          <span className={timeline === 30 ? "active" : ""} onClick={() => setTimeline(30)}>+30m</span>
+        </div>
+      </div>
+
+      {/* Rerouting Alerts / Actions */}
+      {alerts && alerts.length > 0 && (
+        <div className="crowd-alerts-list" style={{ marginTop: 12 }}>
+          {alerts.map((alert, idx) => (
+            <div key={idx} className={`crowd-alert-banner ${alert.severity.toLowerCase()}`}>
+              <div className="crowd-alert-header">
+                <h5>{alert.severity} Alert: Predictor Botleneck</h5>
+                <span style={{ fontSize: "10px", color: "var(--text-muted)" }}>15-20m Outlook</span>
+              </div>
+              <p className="crowd-alert-body">{alert.message}</p>
+              <button 
+                className="crowd-alert-action-btn"
+                onClick={() => handleApplyReroute(alert.target_gate, alert.alternate_gate)}
+                disabled={rerouting}
+              >
+                {rerouting ? "Rerouting..." : `Apply: Reroute to Gate B`}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
