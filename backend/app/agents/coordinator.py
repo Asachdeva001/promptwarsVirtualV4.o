@@ -19,20 +19,30 @@ except ImportError:
 class CoordinatorAgent:
     def __init__(self):
         self.api_key = settings.GEMINI_API_KEY
-        self.use_api = HAS_GENAI and len(self.api_key) > 0
-        if self.use_api:
-            try:
-                genai.configure(api_key=self.api_key)
-                # We can use gemini-2.5-flash as indicated in agent.md / solution.md
-                # Since the SDK version might vary, gemini-1.5-flash or gemini-2.5-flash can be used.
-                # Let's default to gemini-1.5-flash or gemini-2.5-flash
-                self.model_name = "gemini-1.5-flash"
-                logger.info(f"Gemini API configured successfully with model: {self.model_name}")
-            except Exception as e:
-                logger.error(f"Failed to configure Gemini API: {e}. Falling back to Rule Engine.")
-                self.use_api = False
-        else:
-            logger.info("No Gemini API key found or package missing. Using local rule engine.")
+        self.use_api = False
+        self.model_name = "gemini-1.5-flash"
+        
+        if HAS_GENAI:
+            if self.api_key:
+                try:
+                    genai.configure(api_key=self.api_key)
+                    self.use_api = True
+                    logger.info(f"Gemini API configured successfully using GEMINI_API_KEY. Model: {self.model_name}")
+                except Exception as e:
+                    logger.error(f"Failed to configure Gemini API using API key: {e}.")
+            else:
+                # Try loading Application Default Credentials (ADC) from gcloud login / service accounts
+                try:
+                    import google.auth
+                    credentials, project_id = google.auth.default()
+                    genai.configure(credentials=credentials)
+                    self.use_api = True
+                    logger.info(f"Gemini API configured successfully using Application Default Credentials (ADC). Model: {self.model_name}")
+                except Exception as e:
+                    logger.info(f"No active Application Default Credentials (ADC) found: {e}.")
+                    
+        if not self.use_api:
+            logger.info("Using local semantic rule engine fallback.")
 
     def run_live_risk_assessment(self) -> Dict[str, Any]:
         """Provides a structured risk summary, confidence, actions, and departments affected."""
