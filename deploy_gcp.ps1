@@ -42,14 +42,39 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host "APIs enabled successfully." -ForegroundColor Green
 
+# Optional: Configure GEMINI_API_KEY for Backend container
+Write-Host ""
+$envKey = $env:GEMINI_API_KEY
+$geminiApiKey = ""
+if (![string]::IsNullOrEmpty($envKey)) {
+    Write-Host "GEMINI_API_KEY detected in local environment." -ForegroundColor Green
+    $keyChoice = Read-Host "Do you want to use this API key for backend? (Y/n)"
+    if ($keyChoice.ToLower() -ne 'n') {
+        $geminiApiKey = $envKey
+    }
+}
+
+if ([string]::IsNullOrEmpty($geminiApiKey)) {
+    $geminiApiKey = Read-Host "Enter your GEMINI_API_KEY (optional, press Enter to use Google Cloud IAM / default Service Account authentication)"
+}
+
 # 3. Build & Deploy Backend
 Write-Host ""
 Write-Host "[2/4] Deploying FastAPI Backend to Cloud Run..." -ForegroundColor Cyan
-gcloud run deploy stadium-os-backend `
-    --source ./backend `
-    --region us-central1 `
-    --allow-unauthenticated `
-    --format="value(status.address.url)" > backend_url.txt
+
+$backendArgs = @(
+    "run", "deploy", "stadium-os-backend",
+    "--source", "./backend",
+    "--region", "us-central1",
+    "--allow-unauthenticated",
+    "--format=value(status.address.url)"
+)
+if (![string]::IsNullOrEmpty($geminiApiKey)) {
+    $backendArgs += "--set-env-vars"
+    $backendArgs += "GEMINI_API_KEY=$geminiApiKey"
+}
+
+gcloud @backendArgs > backend_url.txt
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Backend deployment failed. Exiting."
