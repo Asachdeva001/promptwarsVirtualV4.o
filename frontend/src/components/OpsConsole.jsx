@@ -5,12 +5,15 @@ export default function OpsConsole({ logs, onActionExecuted }) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState(null);
   const [loading, setLoading] = useState(false);
-  const logsEndRef = useRef(null);
+  const logsContainerRef = useRef(null);
 
-  // Auto-scroll logs to bottom
+  // Auto-scroll logs to bottom (container only, prevents window scrolling)
   useEffect(() => {
-    if (logsEndRef.current) {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (logsContainerRef.current) {
+      logsContainerRef.current.scrollTo({
+        top: logsContainerRef.current.scrollHeight,
+        behavior: "smooth"
+      });
     }
   }, [logs]);
 
@@ -75,7 +78,7 @@ export default function OpsConsole({ logs, onActionExecuted }) {
         </h2>
       </div>
 
-      <div className="logs-display">
+      <div className="logs-display" ref={logsContainerRef}>
         {logs && logs.length > 0 ? (
           logs.map((log, index) => (
             <div className="log-entry" key={index}>
@@ -89,7 +92,6 @@ export default function OpsConsole({ logs, onActionExecuted }) {
             <span className="log-msg">No logs currently streaming...</span>
           </div>
         )}
-        <div ref={logsEndRef} />
       </div>
 
       {/* Operations Copilot AI Panel */}
