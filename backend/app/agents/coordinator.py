@@ -76,6 +76,14 @@ class CoordinatorAgent:
             risks.append(f"There are {len(unassigned)} unassigned incidents requiring volunteer dispatch.")
             departments.append("Volunteer Coordination")
             actions.append("Dispatch nearest idle volunteers to South Concourse and Gate A.")
+
+        # Egress transit delays check
+        congested_transit = [t for t in db.transit if t["wait_time"] > 18]
+        if congested_transit:
+            for t in congested_transit:
+                risks.append(f"Transit line {t['name']} is congested (Wait: {t['wait_time']} mins).")
+                departments.append("Transportation")
+                actions.append(f"Deploy auxiliary shuttles/buses for {t['name']} to balance egress.")
             
         # Default if everything is fine
         if not risks:
@@ -186,6 +194,23 @@ class CoordinatorAgent:
                 "recommended_actions": [
                     "Push a mobile notification to fans recommending Food Court B.",
                     "Display special offers on West Concourse digital signage to divert traffic."
+                ]
+            }
+        
+        # Scenario 5: Transit & Egress query
+        elif any(w in q for w in ["transit", "train", "bus", "ferry", "rideshare", "subway", "egress", "leave", "exit"]):
+            congested = [t for t in db.transit if t["wait_time"] > 15]
+            summary_parts = [f"{t['name']} wait is {t['wait_time']}m" for t in db.transit]
+            summary_str = ", ".join(summary_parts)
+            
+            return {
+                "summary": f"Local transit lines are loading for stadium egress. Status: {summary_str}. " + 
+                           ("Delays detected on transit networks." if congested else "All lines running optimally."),
+                "confidence_score": 98,
+                "departments": ["Transportation", "Crowd Management"],
+                "recommended_actions": [
+                    f"Deploy auxiliary transit flow-balancing for congested lines.",
+                    "Update digital signage to guide exiting crowds to optimal platforms."
                 ]
             }
             

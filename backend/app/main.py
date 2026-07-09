@@ -46,6 +46,15 @@ class FanQueryRequest(BaseModel):
     query: str = Field(..., description="Question from fan mobile app")
     language: str = Field("en", description="Language code (en, es, fr, de, ar)")
 
+class SelectStadiumRequest(BaseModel):
+    stadium_id: str = Field(..., description="ID of target World Cup stadium")
+
+class VisionInspectRequest(BaseModel):
+    camera_id: str = Field(..., description="CCTV Camera ID to inspect")
+
+class EgressRequest(BaseModel):
+    transit_id: str = Field(..., description="ID of congested public transit line")
+
 # --- API Endpoints ---
 
 @app.get("/")
@@ -175,3 +184,165 @@ def post_reset_simulation():
         return {"success": True, "message": "Simulation databases reset."}
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@app.get("/api/stadiums")
+def get_stadiums_list():
+    """List available stadiums and active scores."""
+    try:
+        from app.mock_data import STADIUM_REGISTRY
+        return [
+            {
+                "id": s_id,
+                "name": s_info["name"],
+                "location": s_info["location"],
+                "capacity": s_info["capacity"],
+                "match_teams": db.stadium_states[s_id]["match_teams"],
+                "match_score": db.stadium_states[s_id]["match_score"],
+                "match_minute": db.stadium_states[s_id]["match_minute"]
+            }
+            for s_id, s_info in STADIUM_REGISTRY.items()
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/stadiums/select")
+def select_active_stadium(req: SelectStadiumRequest):
+    """Switch active stadium context."""
+    try:
+        from app.mock_data import STADIUM_REGISTRY
+        if req.stadium_id not in STADIUM_REGISTRY:
+            raise HTTPException(status_code=404, detail="Stadium not registered.")
+        db.active_id = req.stadium_id
+        db.add_log("system", f"Switched context to {STADIUM_REGISTRY[req.stadium_id]['name']}.")
+        return {"success": True, "active_stadium_id": db.active_id, "summary": db.get_status_summary()}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/transit")
+def get_local_transit():
+    """Retrieve local subway/bus status for active venue."""
+    try:
+        return db.transit
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/transit/balance")
+def balance_transit_flow(req: EgressRequest):
+    """Egress Action: deploy shuttle transit and balance flow."""
+    try:
+        target_transit = next((t for t in db.transit if t["id"] == req.transit_id), None)
+        if not target_transit:
+            raise HTTPException(status_code=404, detail="Transit line not found.")
+        
+        old_wait = target_transit["wait_time"]
+        target_transit["wait_time"] = max(5, target_transit["wait_time"] - 10)
+        target_transit["status"] = "Normal"
+        
+        db.add_log("system", f"Egress dispatch: Deployed auxiliary shuttles for {target_transit['name']}. Wait time reduced to {target_transit['wait_time']}m.")
+        return {"success": True, "transit": db.transit}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/vision/inspect")
+def inspect_cctv_frame(req: VisionInspectRequest):
+    """Inspect CCTV camera frame for safety obstructions."""
+    try:
+        camera_id = req.camera_id
+        stadium_id = db.active_id
+        
+        presets = {
+            "metlife": {
+                "cam_104": {
+                    "hazard_detected": True,
+                    "severity": "Critical",
+                    "hazard_type": "Crowd Bottleneck",
+                    "description": "Severe crowd bottleneck detected at Gate A concourse. Flow rate is under 35 persons/min due to turnstile scanner delays.",
+                    "action": "Execute Gate A to Gate B traffic diversion. Dispatch turnstile technician.",
+                    "confidence": 96
+                },
+                "cam_202": {
+                    "hazard_detected": True,
+                    "severity": "Critical",
+                    "hazard_type": "Obstruction",
+                    "description": "Safety hazard detected in Section 228: Dual industrial trash bins are blocking the emergency exit stairwell.",
+                    "action": "Dispatch nearby volunteer to clear obstruction immediately.",
+                    "confidence": 98
+                }
+            },
+            "azteca": {
+                "cam_104": {
+                    "hazard_detected": False,
+                    "severity": "Low",
+                    "hazard_type": "None",
+                    "description": "Azteca Concourse entry flow is optimal. No bottleneck threat detected.",
+                    "action": "Continue automated scanning.",
+                    "confidence": 94
+                },
+                "cam_202": {
+                    "hazard_detected": True,
+                    "severity": "Medium",
+                    "hazard_type": "Slippery Surface",
+                    "description": "Liquid spill detected near East Concourse restrooms. Moderate slip hazard for descending fans.",
+                    "action": "Dispatch cleanup volunteer to secure area.",
+                    "confidence": 91
+                }
+            },
+            "bc_place": {
+                "cam_104": {
+                    "hazard_detected": False,
+                    "severity": "Low",
+                    "hazard_type": "None",
+                    "description": "BC Place entry Gate A flow rate is normal.",
+                    "action": "Continue automated scanning.",
+                    "confidence": 95
+                },
+                "cam_202": {
+                    "hazard_detected": True,
+                    "severity": "Medium",
+                    "hazard_type": "Accessibility Blockage",
+                    "description": "Section 104 ADA elevator corridor is blocked by broadcast equipment cables.",
+                    "action": "Notify Facilities to relocate cables. Deploy volunteer to guide wheelchair users.",
+                    "confidence": 93
+                }
+            }
+        }
+        
+        report = presets.get(stadium_id, {}).get(camera_id, {
+            "hazard_detected": False,
+            "severity": "Low",
+            "hazard_type": "None",
+            "description": f"Camera {camera_id} area scanned. Crowd levels normal. No hazards found.",
+            "action": "Maintain routine CCTV polling.",
+            "confidence": 90
+        })
+        
+        if coordinator_agent.use_api:
+            try:
+                import google.generativeai as genai
+                model = genai.GenerativeModel("gemini-1.5-flash")
+                prompt = f"Rewrite this CCTV alert message to sound like a brief, highly professional military-grade or FIFA security dispatcher alert (1 sentence max): '{report['description']}'"
+                response = model.generate_content(prompt)
+                if response.text:
+                    report["description"] = response.text.strip()
+            except Exception:
+                pass
+                
+        if report["hazard_detected"]:
+            db.add_log("cctv", f"AI Vision Alert: {report['hazard_type']} detected on {camera_id.upper()}. Severity: {report['severity']}.")
+            
+        return {"success": True, "camera_id": camera_id, "report": report}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/match/tick")
+def match_tick():
+    """Increment match timeline by 1 minute."""
+    try:
+        db.increment_match_minute()
+        return {
+            "match_minute": db.match_minute,
+            "match_score": db.match_score,
+            "status": db.get_status_summary()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -6,13 +6,28 @@ import OpsConsole from "./components/OpsConsole";
 import CrowdMap from "./components/CrowdMap";
 import VolunteerList from "./components/VolunteerList";
 import FanMobile from "./components/FanMobile";
+import TransitPanel from "./components/TransitPanel";
+import CctvVision from "./components/CctvVision";
 
 // Icons
-import { Shield, Sparkles, RefreshCw, Activity, Users, AlertTriangle } from "lucide-react";
+import { Shield, Sparkles, RefreshCw, Activity, Users, AlertTriangle, Play, Pause } from "lucide-react";
 
 export default function App() {
   const [timeline, setTimeline] = useState(0);
+  const [stadiums, setStadiums] = useState([]);
+  const [stadiumId, setStadiumId] = useState("metlife");
+  const [matchMinute, setMatchMinute] = useState(68);
+  const [matchScore, setMatchScore] = useState("2 - 1");
+  const [matchTeams, setMatchTeams] = useState("USA vs England");
+  const [playClock, setPlayClock] = useState(true);
+
   const [status, setStatus] = useState({
+    active_stadium_id: "metlife",
+    stadium_name: "MetLife Stadium",
+    stadium_location: "NY/NJ",
+    match_teams: "USA vs England",
+    match_score: "2 - 1",
+    match_minute: 68,
     occupancy: 68450,
     occupancy_rate: 85.6,
     total_volunteers: 8,
@@ -24,38 +39,62 @@ export default function App() {
     crowd_status: "Green",
     max_gate_wait_time: 15
   });
+
   const [gates, setGates] = useState([]);
   const [alerts, setAlerts] = useState([]);
   const [volunteers, setVolunteers] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [logs, setLogs] = useState([]);
 
-  // Fetch all live database status info
+  // Fetch available stadiums list
+  const fetchStadiums = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/stadiums");
+      const data = await res.json();
+      setStadiums(data);
+      
+      const active = data.find(s => s.id === stadiumId);
+      if (active) {
+        setMatchMinute(active.match_minute);
+        setMatchScore(active.match_score);
+        setMatchTeams(active.match_teams);
+      }
+    } catch (err) {
+      console.error("Failed to fetch stadiums (offline fallback):", err);
+      setStadiums([
+        { id: "metlife", name: "MetLife Stadium", location: "NY/NJ", capacity: 82500, match_teams: "USA vs England", match_score: "2 - 1", match_minute: 68 },
+        { id: "azteca", name: "Estadio Azteca", location: "Mexico City", capacity: 87500, match_teams: "Mexico vs Argentina", match_score: "0 - 0", match_minute: 14 },
+        { id: "bc_place", name: "BC Place", location: "Vancouver", capacity: 54500, match_teams: "Canada vs France", match_score: "1 - 1", match_minute: 41 }
+      ]);
+    }
+  };
+
+  // Fetch live operational statuses
   const fetchTelemetry = async () => {
     try {
-      // 1. General status summary
       const statusRes = await fetch("http://localhost:8000/api/status");
       const statusData = await statusRes.json();
       setStatus(statusData);
+      setMatchMinute(statusData.match_minute);
+      setMatchScore(statusData.match_score);
+      setMatchTeams(statusData.match_teams);
       if (statusData.logs) {
         setLogs(statusData.logs);
       }
 
-      // 2. Incident tracker registry
       const incRes = await fetch("http://localhost:8000/api/incidents");
       const incData = await incRes.json();
       setIncidents(incData);
 
-      // 3. Volunteer registry
       const volRes = await fetch("http://localhost:8000/api/volunteers");
       const volData = await volRes.json();
       setVolunteers(volData);
     } catch (err) {
-      console.error("Telemetry fetch error (API offline, using fallback):", err);
+      console.error("Telemetry fetch error:", err);
     }
   };
 
-  // Fetch crowd projections based on timeline offset
+  // Fetch prediction maps
   const fetchCrowdPredictions = async () => {
     try {
       const res = await fetch(`http://localhost:8000/api/gates?timeline=${timeline}`);
@@ -64,31 +103,28 @@ export default function App() {
       setAlerts(data.alerts);
     } catch (err) {
       console.error("Crowd prediction fetch error:", err);
-      // Fail-safe mock data loader
-      if (timeline === 0) {
-        setGates([
-          { id: "gate_a", name: "Gate A", current_queue_length: 620, estimated_wait_time: 15, coordinates: { x: 20, y: 10 } },
-          { id: "gate_b", name: "Gate B", current_queue_length: 150, estimated_wait_time: 4, coordinates: { x: 80, y: 10 } },
-          { id: "gate_c", name: "Gate C", current_queue_length: 280, estimated_wait_time: 7, coordinates: { x: 80, y: 90 } },
-          { id: "gate_d", name: "Gate D", current_queue_length: 340, estimated_wait_time: 9, coordinates: { x: 20, y: 90 } }
-        ]);
-        setAlerts([]);
-      } else if (timeline === 20) {
-        setGates([
-          { id: "gate_a", name: "Gate A", current_queue_length: 992, estimated_wait_time: 24, coordinates: { x: 20, y: 10 } },
-          { id: "gate_b", name: "Gate B", current_queue_length: 165, estimated_wait_time: 4, coordinates: { x: 80, y: 10 } },
-          { id: "gate_c", name: "Gate C", current_queue_length: 322, estimated_wait_time: 8, coordinates: { x: 80, y: 90 } },
-          { id: "gate_d", name: "Gate D", current_queue_length: 442, estimated_wait_time: 11, coordinates: { x: 20, y: 90 } }
-        ]);
-        setAlerts([
-          {
-            severity: "Critical",
-            message: "Critical bottleneck predicted at Gate A in 20 minutes! Wait time expected to exceed 24 mins.",
-            target_gate: "gate_a",
-            alternate_gate: "gate_b"
-          }
-        ]);
+    }
+  };
+
+  // Handle active stadium switch
+  const handleStadiumChange = async (newId) => {
+    try {
+      const res = await fetch("http://localhost:8000/api/stadiums/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stadium_id: newId })
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStadiumId(newId);
+        setTimeline(0);
+        await fetchStadiums();
+        await fetchTelemetry();
+        await fetchCrowdPredictions();
       }
+    } catch (err) {
+      console.error("Error changing stadium context:", err);
+      setStadiumId(newId);
     }
   };
 
@@ -99,22 +135,50 @@ export default function App() {
       const data = await res.json();
       if (data.success) {
         setTimeline(0);
+        setStadiumId("metlife");
+        await fetchStadiums();
         await fetchTelemetry();
         await fetchCrowdPredictions();
         alert("Simulation state reset successfully.");
       }
     } catch (err) {
       console.error("Reset error:", err);
-      // Local reload
       setTimeline(0);
       alert("Local reload triggered.");
     }
   };
 
+  // Match clock ticker handler
+  useEffect(() => {
+    let tickInterval = null;
+    if (playClock) {
+      tickInterval = setInterval(async () => {
+        try {
+          const res = await fetch("http://localhost:8000/api/match/tick", { method: "POST" });
+          const data = await res.json();
+          setMatchMinute(data.match_minute);
+          setMatchScore(data.match_score);
+          fetchTelemetry();
+        } catch (err) {
+          // local fallback tick
+          setMatchMinute(m => {
+            const nextM = m + 1;
+            if (nextM > 90) return 0;
+            return nextM;
+          });
+        }
+      }, 3000); // clock ticks every 3 seconds
+    }
+    return () => {
+      if (tickInterval) clearInterval(tickInterval);
+    };
+  }, [playClock]);
+
   // Initial load
   useEffect(() => {
+    fetchStadiums();
     fetchTelemetry();
-  }, []);
+  }, [stadiumId]);
 
   // Sync predictions whenever timeline or logs update
   useEffect(() => {
@@ -139,6 +203,58 @@ export default function App() {
           <span className="nav-logo-text">StadiumOS</span>
           <span className="nav-badge">FIFA World Cup 2026</span>
         </div>
+
+        {/* Stadium Selector and Live Score Timeline Ticker */}
+        <div className="nav-middle" style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <select 
+            className="lang-selector" 
+            style={{ 
+              fontSize: "12px", 
+              padding: "6px 12px", 
+              borderRadius: "8px", 
+              border: "1px solid rgba(255,255,255,0.15)", 
+              backgroundColor: "rgba(0,0,0,0.45)",
+              color: "#fff"
+            }}
+            value={stadiumId}
+            onChange={(e) => handleStadiumChange(e.target.value)}
+          >
+            {stadiums.map(s => (
+              <option key={s.id} value={s.id}>{s.name} ({s.location})</option>
+            ))}
+          </select>
+
+          <div style={{
+            background: "rgba(255,255,255,0.03)",
+            border: "1px solid var(--border-glass)",
+            padding: "5px 12px",
+            borderRadius: "8px",
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            fontSize: "13px"
+          }}>
+            <span style={{ fontWeight: 700, color: "var(--accent-green)" }}>LIVE SCORE:</span>
+            <span style={{ fontWeight: 500 }}>{matchTeams}</span>
+            <strong style={{ letterSpacing: "0.05em", color: "#fff" }}>{matchScore}</strong>
+            <span style={{ color: "var(--text-secondary)" }}>Time: {matchMinute}'</span>
+            <button 
+              onClick={() => setPlayClock(!playClock)} 
+              style={{
+                background: "transparent",
+                border: "none",
+                cursor: "pointer",
+                color: playClock ? "var(--accent-green)" : "var(--text-secondary)",
+                display: "flex",
+                alignItems: "center"
+              }}
+              title={playClock ? "Pause Match Timer" : "Play Match Timer"}
+            >
+              {playClock ? <Pause size={12} fill="var(--accent-green)" /> : <Play size={12} fill="var(--text-secondary)" />}
+            </button>
+          </div>
+        </div>
+
         <div className="nav-controls">
           <button className="reset-btn" onClick={handleResetSimulation}>
             <RefreshCw size={14} style={{ marginRight: 6 }} />
@@ -160,7 +276,7 @@ export default function App() {
             <div className="kpi-details">
               <h4>Stadium Occupancy</h4>
               <p>{status.occupancy.toLocaleString()}</p>
-              <div className="kpi-sub">{status.occupancy_rate}% capacity</div>
+              <div className="kpi-sub">85.5% capacity</div>
             </div>
           </div>
 
@@ -200,6 +316,7 @@ export default function App() {
         </section>
 
         {/* Dashboard Panels */}
+        {/* Row 2 */}
         <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
           <CrowdMap 
             timeline={timeline} 
@@ -225,7 +342,20 @@ export default function App() {
           <FanMobile />
         </section>
 
-        {/* Operations Terminal Bottom Row */}
+        {/* Row 3 */}
+        <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
+          <TransitPanel 
+            stadiumId={stadiumId} 
+            matchMinute={matchMinute} 
+            onUpdateNeeded={fetchTelemetry} 
+          />
+        </section>
+
+        <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
+          <CctvVision />
+        </section>
+
+        {/* Row 4 */}
         <section className="glass-panel" style={{ gridColumn: "1 / span 2" }}>
           <OpsConsole 
             logs={logs}

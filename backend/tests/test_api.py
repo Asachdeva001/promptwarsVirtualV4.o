@@ -38,3 +38,45 @@ def test_fan_query():
     data = response.json()
     assert "response" in data
     assert data["category"] == "Restroom"
+
+def test_get_stadiums():
+    response = client.get("/api/stadiums")
+    assert response.status_code == 200
+    assert len(response.json()) == 3
+    assert response.json()[0]["id"] == "metlife"
+
+def test_select_stadium():
+    response = client.post("/api/stadiums/select", json={"stadium_id": "azteca"})
+    assert response.status_code == 200
+    assert response.json()["active_stadium_id"] == "azteca"
+    assert db.active_id == "azteca"
+
+def test_get_transit():
+    client.post("/api/stadiums/select", json={"stadium_id": "metlife"})
+    response = client.get("/api/transit")
+    assert response.status_code == 200
+    assert len(response.json()) > 0
+    assert response.json()[0]["id"] == "train"
+
+def test_balance_transit():
+    # In MetLife, train wait time starts at 15
+    response = client.post("/api/transit/balance", json={"transit_id": "train"})
+    assert response.status_code == 200
+    assert response.json()["success"] is True
+    # Decreases by 10 to 5
+    assert response.json()["transit"][0]["wait_time"] == 5
+
+def test_vision_inspect():
+    response = client.post("/api/vision/inspect", json={"camera_id": "cam_202"})
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert "report" in data
+    assert data["report"]["hazard_detected"] is True
+
+def test_match_tick():
+    db.reset()
+    start_min = db.match_minute
+    response = client.post("/api/match/tick")
+    assert response.status_code == 200
+    assert response.json()["match_minute"] == start_min + 1

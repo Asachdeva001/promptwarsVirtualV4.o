@@ -806,6 +806,7 @@ h1, h2, h3, h4, h5, h6 {
 /* Multilingual Fan Copilot Mobile Mockup */
 .fan-panel {
   grid-column: 3;
+  grid-row: 2 / span 2;
   display: flex;
   flex-direction: column;
 }
