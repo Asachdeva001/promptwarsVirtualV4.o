@@ -122,7 +122,15 @@ export default function VolunteerList({ incidents, volunteers, onUpdate }) {
               <div 
                 key={incident.id} 
                 className={`incident-card ${isSelected ? "selected" : ""}`}
+                role="button"
+                tabIndex={incident.status === "Resolved" ? -1 : 0}
+                aria-label={`Incident: ${incident.title}. Severity: ${incident.severity}. Status: ${incident.status}. Location: ${incident.location_name}`}
                 onClick={() => incident.status !== "Resolved" && setSelectedIncident(incident)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    if (incident.status !== "Resolved") setSelectedIncident(incident);
+                  }
+                }}
                 style={{ cursor: incident.status === "Resolved" ? "default" : "pointer" }}
               >
                 <div className="incident-meta">

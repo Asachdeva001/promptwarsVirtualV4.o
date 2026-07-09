@@ -113,6 +113,7 @@ export default function FanMobile() {
               className="lang-selector" 
               value={lang} 
               onChange={(e) => handleLanguageChange(e.target.value)}
+              aria-label="Select Fan App Language"
             >
               <option value="en">EN</option>
               <option value="es">ES</option>
@@ -167,8 +168,9 @@ export default function FanMobile() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSend(query)}
+            aria-label="Fan Message Input"
           />
-          <button className="mobile-send-btn" onClick={() => handleSend(query)}>
+          <button className="mobile-send-btn" onClick={() => handleSend(query)} aria-label="Send Message">
             <Send size={12} />
           </button>
         </div>

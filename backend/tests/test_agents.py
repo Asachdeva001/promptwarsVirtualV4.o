@@ -45,3 +45,34 @@ def test_fan_multilingual_assistance():
     assert res_es["category"] == "Food"
     assert "Tacos & Churros" in res_es["response"]
     assert "recomiendo" in res_es["response"]
+
+def test_coordinator_routing():
+    from app.agents.coordinator import coordinator_agent
+    db.reset()
+    
+    # Test risk route
+    res = coordinator_agent.process_organizer_query("Is there any threat or hazard?")
+    assert "bottleneck" in res["summary"].lower() or "operational" in res["summary"].lower()
+    
+    # Test transit egress route
+    res_transit = coordinator_agent.process_organizer_query("How are the subways and exit times?")
+    assert "transit" in res_transit["summary"].lower()
+    assert len(res_transit["recommended_actions"]) > 0
+
+def test_transit_egress_thresholds():
+    db.reset()
+    db.active_id = "metlife"
+    db.match_minute = 74
+    # Ticking to 75 triggers egress
+    db.increment_match_minute()
+    assert db.transit[0]["wait_time"] == 16  # starts at 15, goes to 16
+
+def test_vision_preset_routing():
+    db.reset()
+    db.active_id = "metlife"
+    # Inspect camera 104
+    from app.main import inspect_cctv_frame, VisionInspectRequest
+    res = inspect_cctv_frame(VisionInspectRequest(camera_id="cam_104"))
+    assert res["success"] is True
+    assert res["report"]["hazard_detected"] is True
+    assert res["report"]["hazard_type"] == "Crowd Bottleneck"

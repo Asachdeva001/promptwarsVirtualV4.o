@@ -161,11 +161,13 @@ export default function OpsConsole({ logs, onActionExecuted }) {
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendQuery(query)}
               disabled={loading}
+              aria-label="Ask Operations Copilot Query"
             />
             <button 
               className="chat-send-btn" 
               onClick={() => handleSendQuery(query)}
               disabled={loading}
+              aria-label="Send Query"
             >
               {loading ? "..." : <Send size={16} />}
             </button>

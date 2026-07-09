@@ -125,13 +125,14 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
             className="timeline-slider"
             value={timeline}
             onChange={(e) => setTimeline(parseInt(e.target.value))}
+            aria-label="Crowd Prediction Timeline"
           />
         </div>
         <div className="timeline-labels">
-          <span className={timeline === 0 ? "active" : ""} onClick={() => setTimeline(0)}>LIVE</span>
-          <span className={timeline === 10 ? "active" : ""} onClick={() => setTimeline(10)}>+10m</span>
-          <span className={timeline === 20 ? "active" : ""} onClick={() => setTimeline(20)}>+20m</span>
-          <span className={timeline === 30 ? "active" : ""} onClick={() => setTimeline(30)}>+30m</span>
+          <button type="button" className={timeline === 0 ? "active" : ""} onClick={() => setTimeline(0)} aria-label="Set timeline to Live">LIVE</button>
+          <button type="button" className={timeline === 10 ? "active" : ""} onClick={() => setTimeline(10)} aria-label="Set timeline to 10 minutes ahead">+10m</button>
+          <button type="button" className={timeline === 20 ? "active" : ""} onClick={() => setTimeline(20)} aria-label="Set timeline to 20 minutes ahead">+20m</button>
+          <button type="button" className={timeline === 30 ? "active" : ""} onClick={() => setTimeline(30)} aria-label="Set timeline to 30 minutes ahead">+30m</button>
         </div>
       </div>
 

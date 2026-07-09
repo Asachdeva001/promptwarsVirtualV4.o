@@ -221,6 +221,7 @@ export default function App() {
             }}
             value={stadiumId}
             onChange={(e) => handleStadiumChange(e.target.value)}
+            aria-label="Select Stadium Host Venue"
           >
             {stadiums.map(s => (
               <option key={s.id} value={s.id}>{s.name} ({s.location})</option>
@@ -252,6 +253,7 @@ export default function App() {
                 alignItems: "center"
               }}
               title={playClock ? "Pause Match Timer" : "Play Match Timer"}
+              aria-label={playClock ? "Pause Match Timer" : "Play Match Timer"}
             >
               {playClock ? <Pause size={12} fill="var(--accent-green)" /> : <Play size={12} fill="var(--text-secondary)" />}
             </button>
@@ -259,7 +261,7 @@ export default function App() {
         </div>
 
         <div className="nav-controls">
-          <button className="reset-btn" onClick={handleResetSimulation}>
+          <button className="reset-btn" onClick={handleResetSimulation} aria-label="Reset Simulation">
             <RefreshCw size={14} style={{ marginRight: 6 }} />
             Reset Sim
           </button>
