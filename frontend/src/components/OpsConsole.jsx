@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Terminal, Send, Activity, ShieldAlert, Sparkles, CheckCircle } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function OpsConsole({ logs, onActionExecuted }) {
   const [query, setQuery] = useState("");
@@ -21,7 +22,7 @@ export default function OpsConsole({ logs, onActionExecuted }) {
     if (!queryText.trim()) return;
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/copilot/query", {
+      const res = await fetch(`${API_BASE_URL}/api/copilot/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: queryText })
@@ -47,7 +48,7 @@ export default function OpsConsole({ logs, onActionExecuted }) {
     // Check if the action implies rerouting
     if (actionText.toLowerCase().includes("reroute") || actionText.toLowerCase().includes("redirection")) {
       try {
-        const res = await fetch("http://localhost:8000/api/gates/reroute", {
+        const res = await fetch(`${API_BASE_URL}/api/gates/reroute`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ source_gate_id: "gate_a", dest_gate_id: "gate_b" })

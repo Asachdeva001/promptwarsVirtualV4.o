@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Users, ShieldAlert, Award, Phone, Check } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function VolunteerList({ incidents, volunteers, onUpdate }) {
   const [selectedIncident, setSelectedIncident] = useState(null);
@@ -17,7 +18,7 @@ export default function VolunteerList({ incidents, volunteers, onUpdate }) {
   const fetchRecommendations = async (incidentId) => {
     setLoadingRecs(true);
     try {
-      const res = await fetch(`http://localhost:8000/api/incidents/${incidentId}/recommend`);
+      const res = await fetch(`${API_BASE_URL}/api/incidents/${incidentId}/recommend`);
       const data = await res.json();
       if (data.success) {
         setRecommendations(data.recommended_candidates);
@@ -49,7 +50,7 @@ export default function VolunteerList({ incidents, volunteers, onUpdate }) {
   const handleAssign = async (volunteerId) => {
     if (!selectedIncident) return;
     try {
-      const res = await fetch("http://localhost:8000/api/incidents/assign", {
+      const res = await fetch(`${API_BASE_URL}/api/incidents/assign`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -75,7 +76,7 @@ export default function VolunteerList({ incidents, volunteers, onUpdate }) {
 
   const handleResolve = async (incidentId) => {
     try {
-      const res = await fetch("http://localhost:8000/api/incidents/status", {
+      const res = await fetch(`${API_BASE_URL}/api/incidents/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

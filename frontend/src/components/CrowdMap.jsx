@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Compass, Users, RefreshCw } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerouteSuccess }) {
   const [rerouting, setRerouting] = useState(false);
@@ -7,7 +8,7 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
   const handleApplyReroute = async (source, dest) => {
     setRerouting(true);
     try {
-      const res = await fetch("http://localhost:8000/api/gates/reroute", {
+      const res = await fetch(`${API_BASE_URL}/api/gates/reroute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ source_gate_id: source, dest_gate_id: dest })

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Camera, ShieldAlert, Sparkles, Check } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function CctvVision() {
   const [selectedCam, setSelectedCam] = useState("cam_104");
@@ -10,7 +11,7 @@ export default function CctvVision() {
     setLoading(true);
     setReport(null);
     try {
-      const res = await fetch("http://localhost:8000/api/vision/inspect", {
+      const res = await fetch(`${API_BASE_URL}/api/vision/inspect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ camera_id: selectedCam })

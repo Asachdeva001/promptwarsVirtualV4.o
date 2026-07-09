@@ -9,6 +9,9 @@ import FanMobile from "./components/FanMobile";
 import TransitPanel from "./components/TransitPanel";
 import CctvVision from "./components/CctvVision";
 
+// Config
+import { API_BASE_URL } from "./config";
+
 // Icons
 import { Shield, Sparkles, RefreshCw, Activity, Users, AlertTriangle, Play, Pause } from "lucide-react";
 
@@ -49,7 +52,7 @@ export default function App() {
   // Fetch available stadiums list
   const fetchStadiums = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/stadiums");
+      const res = await fetch(`${API_BASE_URL}/api/stadiums`);
       const data = await res.json();
       setStadiums(data);
       
@@ -72,7 +75,7 @@ export default function App() {
   // Fetch live operational statuses
   const fetchTelemetry = async () => {
     try {
-      const statusRes = await fetch("http://localhost:8000/api/status");
+      const statusRes = await fetch(`${API_BASE_URL}/api/status`);
       const statusData = await statusRes.json();
       setStatus(statusData);
       setMatchMinute(statusData.match_minute);
@@ -82,11 +85,11 @@ export default function App() {
         setLogs(statusData.logs);
       }
 
-      const incRes = await fetch("http://localhost:8000/api/incidents");
+      const incRes = await fetch(`${API_BASE_URL}/api/incidents`);
       const incData = await incRes.json();
       setIncidents(incData);
 
-      const volRes = await fetch("http://localhost:8000/api/volunteers");
+      const volRes = await fetch(`${API_BASE_URL}/api/volunteers`);
       const volData = await volRes.json();
       setVolunteers(volData);
     } catch (err) {
@@ -97,7 +100,7 @@ export default function App() {
   // Fetch prediction maps
   const fetchCrowdPredictions = async () => {
     try {
-      const res = await fetch(`http://localhost:8000/api/gates?timeline=${timeline}`);
+      const res = await fetch(`${API_BASE_URL}/api/gates?timeline=${timeline}`);
       const data = await res.json();
       setGates(data.gates);
       setAlerts(data.alerts);
@@ -109,7 +112,7 @@ export default function App() {
   // Handle active stadium switch
   const handleStadiumChange = async (newId) => {
     try {
-      const res = await fetch("http://localhost:8000/api/stadiums/select", {
+      const res = await fetch(`${API_BASE_URL}/api/stadiums/select`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ stadium_id: newId })
@@ -131,7 +134,7 @@ export default function App() {
   // Reset simulator
   const handleResetSimulation = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/reset", { method: "POST" });
+      const res = await fetch(`${API_BASE_URL}/api/reset`, { method: "POST" });
       const data = await res.json();
       if (data.success) {
         setTimeline(0);
@@ -154,7 +157,7 @@ export default function App() {
     if (playClock) {
       tickInterval = setInterval(async () => {
         try {
-          const res = await fetch("http://localhost:8000/api/match/tick", { method: "POST" });
+          const res = await fetch(`${API_BASE_URL}/api/match/tick`, { method: "POST" });
           const data = await res.json();
           setMatchMinute(data.match_minute);
           setMatchScore(data.match_score);

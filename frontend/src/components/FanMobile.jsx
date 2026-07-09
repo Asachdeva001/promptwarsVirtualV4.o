@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Send, Smartphone, Languages } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function FanMobile() {
   const [lang, setLang] = useState("en");
@@ -71,7 +72,7 @@ export default function FanMobile() {
     setQuery("");
 
     try {
-      const res = await fetch("http://localhost:8000/api/fan/query", {
+      const res = await fetch(`${API_BASE_URL}/api/fan/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query: textToSend, language: lang })

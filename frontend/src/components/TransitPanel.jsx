@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Train, Bus, Info, Zap } from "lucide-react";
+import { API_BASE_URL } from "../config";
 
 export default function TransitPanel({ stadiumId, matchMinute, onUpdateNeeded }) {
   const [transitLines, setTransitLines] = useState([]);
@@ -7,7 +8,7 @@ export default function TransitPanel({ stadiumId, matchMinute, onUpdateNeeded })
 
   const fetchTransit = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/transit");
+      const res = await fetch(`${API_BASE_URL}/api/transit`);
       const data = await res.json();
       setTransitLines(data);
     } catch (err) {
@@ -35,7 +36,7 @@ export default function TransitPanel({ stadiumId, matchMinute, onUpdateNeeded })
   const handleBalance = async (transitId) => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:8000/api/transit/balance", {
+      const res = await fetch(`${API_BASE_URL}/api/transit/balance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ transit_id: transitId })
