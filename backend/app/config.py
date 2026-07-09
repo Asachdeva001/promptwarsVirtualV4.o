@@ -1,5 +1,9 @@
 import os
+from dotenv import load_dotenv
 from pydantic import BaseModel
+
+# Load local environment variables from .env file
+load_dotenv()
 
 class Settings(BaseModel):
     PROJECT_NAME: str = "StadiumOS"
