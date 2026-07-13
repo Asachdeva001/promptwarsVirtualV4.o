@@ -19,8 +19,10 @@ if not exist "backend\venv" (
     pip install -r backend\requirements.txt
 ) else (
     echo [System] Found existing Python virtual environment.
+    echo [System] Ensuring backend dependencies are up to date...
+    call backend\venv\Scripts\activate
+    pip install -r backend\requirements.txt
 )
-
 :: Start FastAPI Backend
 echo [System] Launching FastAPI Backend on port 8000...
 start "StadiumOS Backend (Port 8000)" cmd /k "call backend\venv\Scripts\activate && cd backend && python run_backend.py"
