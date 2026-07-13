@@ -1,19 +1,26 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import "./App.css";
 
-// Components
-import OpsConsole from "./components/OpsConsole";
-import CrowdMap from "./components/CrowdMap";
-import VolunteerList from "./components/VolunteerList";
-import FanMobile from "./components/FanMobile";
-import TransitPanel from "./components/TransitPanel";
-import CctvVision from "./components/CctvVision";
+// Lazy Loaded Components
+const OpsConsole = lazy(() => import("./components/OpsConsole"));
+const CrowdMap = lazy(() => import("./components/CrowdMap"));
+const VolunteerList = lazy(() => import("./components/VolunteerList"));
+const FanMobile = lazy(() => import("./components/FanMobile"));
+const TransitPanel = lazy(() => import("./components/TransitPanel"));
+const CctvVision = lazy(() => import("./components/CctvVision"));
 
 // Config
 import { API_BASE_URL } from "./config";
 
 // Icons
-import { Shield, Sparkles, RefreshCw, Activity, Users, AlertTriangle, Play, Pause } from "lucide-react";
+import { Shield, Sparkles, RefreshCw, Activity, Users, AlertTriangle, Play, Pause, Loader2 } from "lucide-react";
+
+// Loading Fallback
+const SectionLoader = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '20px' }}>
+    <Loader2 size={24} className="spinner" style={{ animation: 'spin 1s linear infinite', color: 'var(--accent-blue)' }} />
+  </div>
+);
 
 export default function App() {
   const [timeline, setTimeline] = useState(0);
@@ -50,7 +57,7 @@ export default function App() {
   const [logs, setLogs] = useState([]);
 
   // Fetch available stadiums list
-  const fetchStadiums = async () => {
+  const fetchStadiums = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/stadiums`);
       const data = await res.json();
@@ -70,10 +77,10 @@ export default function App() {
         { id: "bc_place", name: "BC Place", location: "Vancouver", capacity: 54500, match_teams: "Canada vs France", match_score: "1 - 1", match_minute: 41 }
       ]);
     }
-  };
+  }, [stadiumId]);
 
   // Fetch live operational statuses
-  const fetchTelemetry = async () => {
+  const fetchTelemetry = useCallback(async () => {
     try {
       const statusRes = await fetch(`${API_BASE_URL}/api/status`);
       const statusData = await statusRes.json();
@@ -95,10 +102,10 @@ export default function App() {
     } catch (err) {
       console.error("Telemetry fetch error:", err);
     }
-  };
+  }, []);
 
   // Fetch prediction maps
-  const fetchCrowdPredictions = async () => {
+  const fetchCrowdPredictions = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/gates?timeline=${timeline}`);
       const data = await res.json();
@@ -107,10 +114,10 @@ export default function App() {
     } catch (err) {
       console.error("Crowd prediction fetch error:", err);
     }
-  };
+  }, [timeline]);
 
   // Handle active stadium switch
-  const handleStadiumChange = async (newId) => {
+  const handleStadiumChange = useCallback(async (newId) => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/stadiums/select`, {
         method: "POST",
@@ -129,10 +136,10 @@ export default function App() {
       console.error("Error changing stadium context:", err);
       setStadiumId(newId);
     }
-  };
+  }, [fetchStadiums, fetchTelemetry, fetchCrowdPredictions]);
 
   // Reset simulator
-  const handleResetSimulation = async () => {
+  const handleResetSimulation = useCallback(async () => {
     try {
       const res = await fetch(`${API_BASE_URL}/api/reset`, { method: "POST" });
       const data = await res.json();
@@ -149,7 +156,7 @@ export default function App() {
       setTimeline(0);
       alert("Local reload triggered.");
     }
-  };
+  }, [fetchStadiums, fetchTelemetry, fetchCrowdPredictions]);
 
   // Match clock ticker handler
   useEffect(() => {
@@ -323,52 +330,64 @@ export default function App() {
         {/* Dashboard Panels */}
         {/* Row 2 */}
         <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <CrowdMap 
-            timeline={timeline} 
-            setTimeline={setTimeline} 
-            gates={gates} 
-            alerts={alerts}
-            onRerouteSuccess={() => {
-              fetchTelemetry();
-              fetchCrowdPredictions();
-            }}
-          />
+          <Suspense fallback={<SectionLoader />}>
+            <CrowdMap 
+              timeline={timeline} 
+              setTimeline={setTimeline} 
+              gates={gates} 
+              alerts={alerts}
+              onRerouteSuccess={() => {
+                fetchTelemetry();
+                fetchCrowdPredictions();
+              }}
+            />
+          </Suspense>
         </section>
 
         <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <VolunteerList 
-            incidents={incidents}
-            volunteers={volunteers}
-            onUpdate={fetchTelemetry}
-          />
+          <Suspense fallback={<SectionLoader />}>
+            <VolunteerList 
+              incidents={incidents}
+              volunteers={volunteers}
+              onUpdate={fetchTelemetry}
+            />
+          </Suspense>
         </section>
 
         <section className="glass-panel fan-panel">
-          <FanMobile />
+          <Suspense fallback={<SectionLoader />}>
+            <FanMobile />
+          </Suspense>
         </section>
 
         {/* Row 3 */}
         <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <TransitPanel 
-            stadiumId={stadiumId} 
-            matchMinute={matchMinute} 
-            onUpdateNeeded={fetchTelemetry} 
-          />
+          <Suspense fallback={<SectionLoader />}>
+            <TransitPanel 
+              stadiumId={stadiumId} 
+              matchMinute={matchMinute} 
+              onUpdateNeeded={fetchTelemetry} 
+            />
+          </Suspense>
         </section>
 
         <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <CctvVision />
+          <Suspense fallback={<SectionLoader />}>
+            <CctvVision />
+          </Suspense>
         </section>
 
         {/* Row 4 */}
         <section className="glass-panel" style={{ gridColumn: "1 / span 2" }}>
-          <OpsConsole 
-            logs={logs}
-            onActionExecuted={() => {
-              fetchTelemetry();
-              fetchCrowdPredictions();
-            }}
-          />
+          <Suspense fallback={<SectionLoader />}>
+            <OpsConsole 
+              logs={logs}
+              onActionExecuted={() => {
+                fetchTelemetry();
+                fetchCrowdPredictions();
+              }}
+            />
+          </Suspense>
         </section>
 
       </main>

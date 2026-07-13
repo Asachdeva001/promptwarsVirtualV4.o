@@ -3,7 +3,7 @@ import json
 import logging
 from typing import Dict, Any, List
 from app.config import settings
-from app.mock_data import db
+from app.database import db
 from app.agents.crowd import crowd_agent
 from app.agents.volunteer import volunteer_agent
 

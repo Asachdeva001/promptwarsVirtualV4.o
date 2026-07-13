@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, memo } from "react";
 import { Send, Smartphone, Languages } from "lucide-react";
 import { API_BASE_URL } from "../config";
 
-export default function FanMobile() {
+const FanMobile = memo(function FanMobile() {
   const [lang, setLang] = useState("en");
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([
@@ -177,4 +177,6 @@ export default function FanMobile() {
       </div>
     </div>
   );
-}
+});
+
+export default FanMobile;

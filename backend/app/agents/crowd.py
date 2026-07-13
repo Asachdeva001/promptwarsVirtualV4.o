@@ -1,5 +1,5 @@
 from typing import Dict, List, Any
-from app.mock_data import db
+from app.database import db
 
 class CrowdIntelligenceAgent:
     def __init__(self):

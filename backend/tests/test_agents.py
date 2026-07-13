@@ -2,7 +2,7 @@ import pytest
 from app.agents.volunteer import volunteer_agent
 from app.agents.crowd import crowd_agent
 from app.agents.fan import fan_agent
-from app.mock_data import db
+from app.database import db
 
 def test_distance_calculation():
     # Coords check (3, 4) to (0, 0) should be 5.0

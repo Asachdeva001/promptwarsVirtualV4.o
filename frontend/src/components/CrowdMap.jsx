@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, memo } from "react";
 import { Compass, Users, RefreshCw } from "lucide-react";
 import { API_BASE_URL } from "../config";
 
-export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerouteSuccess }) {
+const CrowdMap = memo(function CrowdMap({ timeline, setTimeline, gates, alerts, onRerouteSuccess }) {
   const [rerouting, setRerouting] = useState(false);
 
-  const handleApplyReroute = async (source, dest) => {
+  const handleApplyReroute = useCallback(async (source, dest) => {
     setRerouting(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/gates/reroute`, {
@@ -25,7 +25,7 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
     } finally {
       setRerouting(false);
     }
-  };
+  }, [onRerouteSuccess]);
 
   // Helper to determine color based on estimated wait times
   const getGateColor = (gateId, waitTime) => {
@@ -56,7 +56,8 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
 
       {/* Stadium Visual Layout */}
       <div className="stadium-map-wrapper">
-        <svg viewBox="0 0 400 300" className="stadium-svg">
+        <svg viewBox="0 0 400 300" className="stadium-svg" role="img" aria-label="Stadium map showing gates and wait times">
+          <title>Interactive Stadium Map</title>
           {/* Background Grid */}
           <defs>
             <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
@@ -88,15 +89,27 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
             const color = getGateColor(gate.id, gate.estimated_wait_time);
             const cx = scaleX(gate.coordinates.x);
             const cy = scaleY(gate.coordinates.y);
+            const gateName = gate.id.replace("gate_", "Gate ").toUpperCase();
             return (
-              <g key={gate.id} className="map-node">
+              <g 
+                key={gate.id} 
+                className="map-node" 
+                role="button" 
+                tabIndex={0} 
+                aria-label={`${gateName}, estimated wait time ${gate.estimated_wait_time} minutes`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                     alert(`${gateName} status: ${gate.estimated_wait_time}m wait`);
+                  }
+                }}
+              >
                 {/* Outer Glow ring */}
                 <circle cx={cx} cy={cy} r="14" fill="none" stroke={color} strokeWidth="2" opacity="0.3" style={{ animation: "pulse 1.5s infinite" }} />
                 {/* Core indicator */}
                 <circle cx={cx} cy={cy} r="8" fill={color} stroke="#111" strokeWidth="2" />
                 {/* Label text */}
                 <text x={cx} y={cy - 14} className="map-node-label" fill="#fff" textAnchor="middle">
-                  {gate.id.replace("gate_", "Gate ").toUpperCase()} ({gate.estimated_wait_time}m)
+                  {gateName} ({gate.estimated_wait_time}m)
                 </text>
               </g>
             );
@@ -138,7 +151,7 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
 
       {/* Rerouting Alerts / Actions */}
       {alerts && alerts.length > 0 && (
-        <div className="crowd-alerts-list" style={{ marginTop: 12 }}>
+        <div className="crowd-alerts-list" style={{ marginTop: 12 }} aria-live="polite">
           {alerts.map((alert, idx) => (
             <div key={idx} className={`crowd-alert-banner ${alert.severity.toLowerCase()}`}>
               <div className="crowd-alert-header">
@@ -159,4 +172,6 @@ export default function CrowdMap({ timeline, setTimeline, gates, alerts, onRerou
       )}
     </div>
   );
-}
+});
+
+export default CrowdMap;

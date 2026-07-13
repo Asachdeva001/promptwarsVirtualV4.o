@@ -1,10 +1,16 @@
-from fastapi import FastAPI, HTTPException, Query, status
+from fastapi import FastAPI, HTTPException, Query, status, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, Field, constr
 from typing import List, Dict, Any, Optional
 
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+import secure
+
 from app.config import settings
-from app.mock_data import db
+from app.database import db
 from app.agents.coordinator import coordinator_agent
 from app.agents.crowd import crowd_agent
 from app.agents.volunteer import volunteer_agent
@@ -15,6 +21,29 @@ app = FastAPI(
     description="StadiumOS API Services - AI Operations Platform for FIFA World Cup 2026",
     version="1.0.0"
 )
+
+# Setup SlowAPI Limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Setup Secure Headers
+secure_headers = secure.Secure()
+
+@app.middleware("http")
+async def set_secure_headers(request, call_next):
+    response = await call_next(request)
+    secure_headers.framework.fastapi(response)
+    return response
+
+# Standardized Exception Handler (Mod 9)
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    # Log exception here (structured logging) in production
+    return JSONResponse(
+        status_code=500,
+        content={"success": False, "message": "An internal server error occurred.", "details": str(exc)}
+    )
 
 # Enable CORS for frontend integration
 import os
@@ -40,35 +69,35 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- Pydantic Models for Schema Validation ---
+# --- Pydantic Models for Schema Validation (Mod 2) ---
 
 class RerouteRequest(BaseModel):
-    source_gate_id: str = Field(..., description="ID of gate experiencing bottleneck")
-    dest_gate_id: str = Field(..., description="ID of gate to receive redirected flow")
+    source_gate_id: str = Field(..., min_length=1, max_length=50, description="ID of gate experiencing bottleneck")
+    dest_gate_id: str = Field(..., min_length=1, max_length=50, description="ID of gate to receive redirected flow")
 
 class AssignRequest(BaseModel):
-    incident_id: str = Field(..., description="ID of the active incident")
-    volunteer_id: str = Field(..., description="ID of the volunteer being assigned")
+    incident_id: str = Field(..., min_length=1, max_length=50, description="ID of the active incident")
+    volunteer_id: str = Field(..., min_length=1, max_length=50, description="ID of the volunteer being assigned")
 
 class IncidentStatusUpdateRequest(BaseModel):
-    incident_id: str = Field(..., description="ID of the active incident")
-    status: str = Field(..., description="Target status (e.g. Assigned, In Progress, Resolved)")
+    incident_id: str = Field(..., min_length=1, max_length=50, description="ID of the active incident")
+    status: str = Field(..., min_length=1, max_length=50, pattern="^(Assigned|In Progress|Resolved)$", description="Target status")
 
 class CopilotQueryRequest(BaseModel):
-    query: str = Field(..., description="Natural language question/prompt from organizer")
+    query: str = Field(..., min_length=1, max_length=1000, description="Natural language question/prompt from organizer")
 
 class FanQueryRequest(BaseModel):
-    query: str = Field(..., description="Question from fan mobile app")
-    language: str = Field("en", description="Language code (en, es, fr, de, ar)")
+    query: str = Field(..., min_length=1, max_length=1000, description="Question from fan mobile app")
+    language: str = Field("en", min_length=2, max_length=10, description="Language code")
 
 class SelectStadiumRequest(BaseModel):
-    stadium_id: str = Field(..., description="ID of target World Cup stadium")
+    stadium_id: str = Field(..., min_length=1, max_length=50, description="ID of target World Cup stadium")
 
 class VisionInspectRequest(BaseModel):
-    camera_id: str = Field(..., description="CCTV Camera ID to inspect")
+    camera_id: str = Field(..., min_length=1, max_length=50, description="CCTV Camera ID to inspect")
 
 class EgressRequest(BaseModel):
-    transit_id: str = Field(..., description="ID of congested public transit line")
+    transit_id: str = Field(..., min_length=1, max_length=50, description="ID of congested public transit line")
 
 # --- API Endpoints ---
 
@@ -174,7 +203,8 @@ def post_update_incident_status(req: IncidentStatusUpdateRequest):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @app.post("/api/copilot/query")
-def post_copilot_query(req: CopilotQueryRequest):
+@limiter.limit("5/minute")
+def post_copilot_query(request: Request, req: CopilotQueryRequest):
     """Send natural language query to the Operations Copilot Agent."""
     try:
         res = coordinator_agent.process_organizer_query(req.query)
@@ -183,7 +213,8 @@ def post_copilot_query(req: CopilotQueryRequest):
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @app.post("/api/fan/query")
-def post_fan_query(req: FanQueryRequest):
+@limiter.limit("10/minute")
+def post_fan_query(request: Request, req: FanQueryRequest):
     """Send natural language query from fan app to Fan Experience Agent."""
     try:
         res = fan_agent.handle_query(req.query, req.language)
@@ -204,7 +235,7 @@ def post_reset_simulation():
 def get_stadiums_list():
     """List available stadiums and active scores."""
     try:
-        from app.mock_data import STADIUM_REGISTRY
+        from app.database import STADIUM_REGISTRY
         return [
             {
                 "id": s_id,
@@ -224,7 +255,7 @@ def get_stadiums_list():
 def select_active_stadium(req: SelectStadiumRequest):
     """Switch active stadium context."""
     try:
-        from app.mock_data import STADIUM_REGISTRY
+        from app.database import STADIUM_REGISTRY
         if req.stadium_id not in STADIUM_REGISTRY:
             raise HTTPException(status_code=404, detail="Stadium not registered.")
         db.active_id = req.stadium_id

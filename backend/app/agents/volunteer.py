@@ -1,6 +1,6 @@
 import math
 from typing import Dict, List, Any, Optional
-from app.mock_data import db
+from app.database import db
 
 class VolunteerCoordinatorAgent:
     def __init__(self):

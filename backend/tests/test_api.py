@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 from app.main import app
-from app.mock_data import db
+from app.database import db
 
 client = TestClient(app)
 
@@ -80,3 +80,24 @@ def test_match_tick():
     response = client.post("/api/match/tick")
     assert response.status_code == 200
     assert response.json()["match_minute"] == start_min + 1
+def test_rate_limiting():
+    # Attempt to hit the copilot endpoint 6 times (limit is 5/min)
+    for _ in range(5):
+        client.post("/api/copilot/query", json={"query": "Test query"})
+    response = client.post("/api/copilot/query", json={"query": "Test query"})
+    assert response.status_code == 429
+
+def test_security_headers():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "strict-transport-security" in response.headers
+    assert "x-content-type-options" in response.headers
+
+def test_form_validation():
+    # Sending missing fields (schema violation)
+    response = client.post("/api/stadiums/select", json={})
+    assert response.status_code == 422
+    
+    # Sending empty string (min_length=1 violation)
+    response = client.post("/api/stadiums/select", json={"stadium_id": ""})
+    assert response.status_code == 422
