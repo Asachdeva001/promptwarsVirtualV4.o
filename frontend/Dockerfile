@@ -8,9 +8,7 @@ RUN npm ci
 
 COPY . .
 
-# Build argument to inject backend API url during compilation
-ARG VITE_API_URL
-ENV VITE_API_URL=$VITE_API_URL
+# Vite will automatically read from .env.production during npm run build
 
 RUN npm run build
 
