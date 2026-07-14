@@ -12,8 +12,9 @@ import secure
 from app.config import settings
 from app.database import db
 from app.agents.coordinator import coordinator_agent
-from app.agents.crowd import crowd_agent
 from app.agents.volunteer import volunteer_agent
+from app.agents.fan import fan_agent
+from app.services.live_scores import live_score_service
 from app.agents.fan import fan_agent
 
 app = FastAPI(
@@ -71,9 +72,7 @@ app.add_middleware(
 
 # --- Pydantic Models for Schema Validation (Mod 2) ---
 
-class RerouteRequest(BaseModel):
-    source_gate_id: str = Field(..., min_length=1, max_length=50, description="ID of gate experiencing bottleneck")
-    dest_gate_id: str = Field(..., min_length=1, max_length=50, description="ID of gate to receive redirected flow")
+# Removed RerouteRequest
 
 class AssignRequest(BaseModel):
     incident_id: str = Field(..., min_length=1, max_length=50, description="ID of the active incident")
@@ -128,30 +127,17 @@ def get_status_summary():
             detail=f"Failed to fetch status: {str(e)}"
         )
 
-@app.get("/api/gates")
-def get_gates_telemetry(timeline: int = Query(0, description="Offset in minutes from live time (0, 10, 20, 30)")):
-    """Retrieve gates status, wait times, queues, and predictions."""
+@app.get("/api/live_scores")
+async def get_live_scores():
+    """Fetches real-time soccer scores from public ESPN API."""
     try:
-        # Save timeline offset in database
-        db.timeline_offset = timeline
-        prediction = crowd_agent.get_predictions(timeline)
-        return prediction
+        scores = await live_score_service.fetch_live_scores()
+        return {"success": True, "matches": scores}
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch crowd predictions: {str(e)}"
+            detail=f"Failed to fetch live scores: {str(e)}"
         )
-
-@app.post("/api/gates/reroute")
-def post_reroute_flow(req: RerouteRequest):
-    """Execute crowd rerouting recommendation to load-balance turnstiles."""
-    try:
-        res = crowd_agent.execute_rerouting(req.source_gate_id, req.dest_gate_id)
-        if not res["success"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res["message"])
-        return res
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 @app.get("/api/volunteers")
 def get_volunteers():

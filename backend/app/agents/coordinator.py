@@ -4,7 +4,6 @@ import logging
 from typing import Dict, Any, List
 from app.config import settings
 from app.database import db
-from app.agents.crowd import crowd_agent
 from app.agents.volunteer import volunteer_agent
 
 logger = logging.getLogger("StadiumOS.Coordinator")
@@ -56,17 +55,15 @@ class CoordinatorAgent:
     def run_live_risk_assessment(self) -> Dict[str, Any]:
         """Provides a structured risk summary, confidence, actions, and departments affected."""
         # Calculate current operational variables
-        gates_pred = crowd_agent.get_predictions(20) # 20 mins ahead
         active_incidents = [inc for inc in db.incidents if inc["status"] != "Resolved"]
         
         risks = []
         departments = []
         actions = []
         
-        # Look for bottlenecks
-        critical_alerts = [a for a in gates_pred["alerts"] if a["severity"] == "Critical"]
-        if critical_alerts:
-            risks.append("Bottleneck threat at Gate A (expected wait >25 mins).")
+        # Look for bottlenecks (mocked directly from db now without crowd agent)
+        if any(g.get("estimated_wait_time", 0) > 20 for g in db.gates):
+            risks.append("Bottleneck threat at Gate A (expected wait >20 mins).")
             departments.append("Crowd Management")
             departments.append("Security")
             actions.append("Reroute incoming traffic from Gate A parking lot to Gate B.")
