@@ -55,15 +55,90 @@ TRANSLATIONS = {
     }
 }
 
+import json
+import logging
+from app.config import settings
+
+logger = logging.getLogger("StadiumOS.Fan")
+
+try:
+    import google.generativeai as genai
+    HAS_GENAI = True
+except ImportError:
+    HAS_GENAI = False
+
 class FanExperienceAgent:
     def __init__(self):
-        pass
+        self.api_key = settings.GEMINI_API_KEY
+        self.use_api = False
+        self.model_name = "gemini-1.5-flash"
+        
+        if HAS_GENAI:
+            if self.api_key:
+                try:
+                    genai.configure(api_key=self.api_key)
+                    self.use_api = True
+                except Exception as e:
+                    logger.error(f"Failed to configure Gemini API: {e}")
+            else:
+                try:
+                    import google.auth
+                    credentials, project_id = google.auth.default()
+                    genai.configure(credentials=credentials)
+                    self.use_api = True
+                except Exception:
+                    pass
 
     def handle_query(self, query: str, lang: str = "en") -> Dict[str, Any]:
         """
         Processes a fan's question and returns a localized helpful response.
         Translates text or yields structured recommendations for concessions, queues, restrooms, or directions.
         """
+        if self.use_api:
+            try:
+                system_instruction = (
+                    f"You are the StadiumOS Fan Mobile Assistant for the FIFA World Cup 2026. "
+                    f"You answer fan questions politely and helpfully in the {lang} language. "
+                    f"Always reply in JSON format with keys: 'response' (str) and 'category' (str). "
+                    f"Categories must be one of: Food, Restroom, Accessibility, Navigation, General."
+                )
+                
+                context = {
+                    "concessions": db.concessions,
+                    "gates": db.gates
+                }
+                
+                model = genai.GenerativeModel(
+                    model_name=self.model_name,
+                    generation_config={"response_mime_type": "application/json"}
+                )
+                
+                prompt = (
+                    f"Context: {json.dumps(context)}\n\n"
+                    f"User Query: {query}\n\n"
+                    f"System Instruction: {system_instruction}"
+                )
+                
+                response = model.generate_content(prompt)
+                
+                # Robustly clean the markdown if it exists
+                text = response.text.strip()
+                if text.startswith("```json"):
+                    text = text[7:]
+                elif text.startswith("```"):
+                    text = text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+                
+                parsed = json.loads(text)
+                return {
+                    "response": parsed.get("response", "How can I help you today?"),
+                    "category": parsed.get("category", "General")
+                }
+            except Exception as e:
+                logger.error(f"Fan Gemini error: {e}. Falling back to Rule Engine.")
+
         q = query.lower()
         lang = lang.lower() if lang in TRANSLATIONS else "en"
         t = TRANSLATIONS[lang]

@@ -33,10 +33,10 @@ export default function OpsConsole({ logs, onActionExecuted }) {
       console.error("Error asking Operations Copilot:", err);
       // Fallback in case of networking issues
       setResponse({
-        summary: "Operations running smoothly. Wait times are normal across turnstiles, and active volunteers are deployed to handle medical requests in Section 112.",
-        confidence_score: 95,
-        departments: ["General Operations"],
-        recommended_actions: ["Continue monitoring live CCTV and flow metrics."]
+        summary: "⚠️ Copilot is currently offline or experiencing a network error. Please try again.",
+        confidence_score: 0,
+        departments: ["IT Support"],
+        recommended_actions: ["Check backend connection and API keys."]
       });
     } finally {
       setLoading(false);

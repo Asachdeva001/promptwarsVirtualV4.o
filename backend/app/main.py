@@ -235,19 +235,31 @@ def post_reset_simulation():
 def get_stadiums_list():
     """List available stadiums and active scores."""
     try:
-        from app.database import STADIUM_REGISTRY
-        return [
-            {
+        from app.database import STADIUM_REGISTRY, db_client
+        stadiums = []
+        for s_id, s_info in STADIUM_REGISTRY.items():
+            match_teams = "Team A vs Team B"
+            match_score = "0 - 0"
+            match_minute = 0
+            
+            if db_client:
+                doc = db_client.collection("stadiums").document(s_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+                    match_teams = data.get("match_teams", match_teams)
+                    match_score = data.get("match_score", match_score)
+                    match_minute = data.get("match_minute", match_minute)
+                    
+            stadiums.append({
                 "id": s_id,
                 "name": s_info["name"],
                 "location": s_info["location"],
                 "capacity": s_info["capacity"],
-                "match_teams": db.stadium_states[s_id]["match_teams"],
-                "match_score": db.stadium_states[s_id]["match_score"],
-                "match_minute": db.stadium_states[s_id]["match_minute"]
-            }
-            for s_id, s_info in STADIUM_REGISTRY.items()
-        ]
+                "match_teams": match_teams,
+                "match_score": match_score,
+                "match_minute": match_minute
+            })
+        return stadiums
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

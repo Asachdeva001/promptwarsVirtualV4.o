@@ -79,13 +79,17 @@ const FanMobile = memo(function FanMobile() {
       });
       const data = await res.json();
       
-      setMessages([...newMessages, { sender: "assistant", text: data.response }]);
+      if (res.ok && data.response) {
+        setMessages([...newMessages, { sender: "assistant", text: data.response }]);
+      } else {
+        setMessages([...newMessages, { sender: "assistant", text: `⚠️ Error: ${data.detail || "The Copilot is currently offline."}` }]);
+      }
     } catch (err) {
       console.error("Error talking to Fan Copilot:", err);
       // Fail-safes
       setMessages([...newMessages, { 
         sender: "assistant", 
-        text: "I'm sorry, I couldn't reach the server. Please check the network." 
+        text: "⚠️ I'm sorry, I couldn't reach the server. Please check the network." 
       }]);
     } finally {
       setLoading(false);

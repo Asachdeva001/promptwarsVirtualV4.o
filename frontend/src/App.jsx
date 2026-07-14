@@ -1,4 +1,4 @@
-import React, { useState, useEffect, Suspense, lazy } from "react";
+import React, { useState, useEffect, Suspense, lazy, useCallback, useMemo } from "react";
 import "./App.css";
 
 // Lazy Loaded Components

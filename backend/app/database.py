@@ -26,10 +26,17 @@ if firebase_cred_path and os.path.exists(firebase_cred_path):
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
     db_client = firestore.client()
-    logger.info("Firebase Firestore initialized successfully.")
+    logger.info("Firebase Firestore initialized successfully with local credentials.")
 else:
-    logger.warning("FIREBASE_SERVICE_ACCOUNT_KEY not set or file not found. Firestore will not connect properly.")
-    db_client = None
+    # Try using Application Default Credentials (Cloud Run)
+    try:
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app()
+        db_client = firestore.client()
+        logger.info("Firebase Firestore initialized successfully using Application Default Credentials.")
+    except Exception as e:
+        logger.warning(f"Failed to initialize Firestore: {e}")
+        db_client = None
 
 STADIUM_REGISTRY = {
     "metlife": {

@@ -63,12 +63,12 @@ class CoordinatorAgent:
             actions.append("Reroute incoming traffic from Gate A parking lot to Gate B.")
             
         # Look for medical or critical incidents
-        critical_incidents = [i for i in active_incidents if i["severity"] == "Critical"]
+        critical_incidents = [i for i in active_incidents if i.get("severity") == "Critical"]
         if critical_incidents:
             for inc in critical_incidents:
-                risks.append(f"Critical Incident: {inc['title']} at {inc['location_name']}.")
+                risks.append(f"Critical Incident: {inc.get('title', inc.get('type', 'Unknown Issue'))} at {inc.get('location', 'Unknown Location')}.")
                 departments.append("Medical Services")
-                actions.append(f"Ensure volunteer {inc['assigned_volunteer_id'] or 'is assigned'} reaches Section 112.")
+                actions.append(f"Ensure volunteer {inc.get('assigned_to', ['is assigned'])[0] if isinstance(inc.get('assigned_to'), list) and inc.get('assigned_to') else inc.get('assigned_volunteer_id', 'is assigned')} reaches {inc.get('location', 'the site')}.")
                 
         # Unassigned incidents
         unassigned = [i for i in active_incidents if i["status"] == "Unassigned"]
@@ -134,7 +134,18 @@ class CoordinatorAgent:
                 )
                 
                 response = model.generate_content(prompt)
-                parsed = json.loads(response.text)
+                
+                # Robustly clean the markdown if it exists
+                text = response.text.strip()
+                if text.startswith("```json"):
+                    text = text[7:]
+                elif text.startswith("```"):
+                    text = text[3:]
+                if text.endswith("```"):
+                    text = text[:-3]
+                text = text.strip()
+                
+                parsed = json.loads(text)
                 return {
                     "summary": parsed.get("summary", "Query processed successfully."),
                     "confidence_score": parsed.get("confidence_score", 90),
@@ -142,7 +153,7 @@ class CoordinatorAgent:
                     "recommended_actions": parsed.get("recommended_actions", ["Monitor the dashboard"])
                 }
             except Exception as e:
-                logger.error(f"Gemini API execution error: {e}. Falling back to Rule Engine.")
+                logger.error(f"Gemini API execution error: {e}. Raw response: {response.text if 'response' in locals() else 'None'}. Falling back to Rule Engine.")
                 # Fallback to local rule engine on exception
 
         # --- Rule Engine Fallback ---
