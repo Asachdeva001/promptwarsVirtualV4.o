@@ -59,8 +59,16 @@ STADIUM_REGISTRY = {
     }
 }
 
-class StadiumDatabase:
+class MockDatabase:
+    """
+    In-memory Mock Database for StadiumOS telemetry simulation.
+    
+    This class maintains the state of the stadium simulation, including
+    ticket gates, volunteer locations, active incidents, match progress,
+    and system logs. It provides methods to reset and modify state safely.
+    """
     def __init__(self):
+        """Initializes the mock database with the default stadium context."""
         self._active_id = "metlife"
         self.timeline_offset = 0
 

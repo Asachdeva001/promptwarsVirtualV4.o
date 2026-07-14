@@ -2,7 +2,15 @@ from typing import Dict, List, Any
 from app.database import db
 
 class CrowdIntelligenceAgent:
+    """
+    Crowd Intelligence Agent responsible for analyzing ticket scanner telemetry.
+    
+    This agent simulates future states to predict bottlenecks at ticketing gates
+    and recommends automated load-balancing reroutes to mitigate congestion.
+    """
+    
     def __init__(self):
+        """Initializes the CrowdIntelligenceAgent."""
         pass
 
     def get_predictions(self, timeline_minutes: int) -> Dict[str, Any]:

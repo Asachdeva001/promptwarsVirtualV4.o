@@ -78,24 +78,17 @@ Organizers can query the dashboard in natural language (e.g. *"What are the bigg
 
 ---
 
-## 5. Getting Started & Installation
+## 5. Getting Started & Access
 
-To run the application locally on Windows, execute the unified launcher script:
+StadiumOS has been deployed to Google Cloud for high availability and scalability.
 
-1. Double-click the file `run_stadium_os.bat` or run it from command prompt:
-   ```powershell
-   .\run_stadium_os.bat
-   ```
-2. The script will automatically:
-   - Create a Python virtual environment (`backend/venv`)
-   - Install all backend dependencies in `backend/requirements.txt`
-   - Start the FastAPI Backend on [http://localhost:8000](http://localhost:8000)
-   - Launch the Vite React Frontend on [http://localhost:3000](http://localhost:3000)
-3. To configure the LLM, set the environment variable:
-   ```powershell
-   $env:GEMINI_API_KEY="your-actual-api-key"
-   ```
-   If no API key is specified, the coordinator uses its local fallback semantic processor, which delivers high-fidelity simulated agent responses.
+**Live Frontend Dashboard (React + Vite)**:
+- [https://stadiumos-frontend-1076364073843.us-central1.run.app](https://stadiumos-frontend-1076364073843.us-central1.run.app)
+
+**Live Backend API (FastAPI)**:
+- [https://stadiumos-backend-1076364073843.us-central1.run.app](https://stadiumos-backend-1076364073843.us-central1.run.app)
+
+The backend is fully equipped with Gemini API integration. If rate limits are exceeded, it seamlessly falls back to a deterministic semantic rule engine, ensuring 100% uptime for operations.
 
 ---
 

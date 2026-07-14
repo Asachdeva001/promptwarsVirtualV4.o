@@ -22,7 +22,16 @@ const SectionLoader = () => (
   </div>
 );
 
-export default function App() {
+export default /**
+ * Main Application Component for StadiumOS.
+ * 
+ * Orchestrates the primary dashboard layout, including the top navigation bar,
+ * global KPI metrics, and the grid of sub-components (CrowdMap, OpsConsole, FanMobile, etc.).
+ * Manages the top-level state for the match timer and active stadium selection.
+ *
+ * @returns {JSX.Element} The rendered dashboard.
+ */
+function App() {
   const [timeline, setTimeline] = useState(0);
   const [stadiums, setStadiums] = useState([]);
   const [stadiumId, setStadiumId] = useState("metlife");

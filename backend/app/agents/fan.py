@@ -68,7 +68,15 @@ except ImportError:
     HAS_GENAI = False
 
 class FanExperienceAgent:
+    """
+    Fan Experience Agent responsible for natural language mobile assistance.
+    
+    This agent parses fan queries in 5 supported languages and outputs structured,
+    localized recommendations for food, navigation, restrooms, and accessibility.
+    """
+    
     def __init__(self):
+        """Initializes the FanExperienceAgent and configures API credentials."""
         self.api_key = settings.GEMINI_API_KEY
         self.use_api = False
         self.model_name = "gemini-1.5-flash"

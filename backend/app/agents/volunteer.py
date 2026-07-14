@@ -3,7 +3,15 @@ from typing import Dict, List, Any, Optional
 from app.database import db
 
 class VolunteerCoordinatorAgent:
+    """
+    Volunteer Coordinator Agent responsible for staff dispatching and logistics.
+    
+    This agent computes proximity heuristics, workload limits, and specialty
+    matching to optimally assign available volunteers to active incidents.
+    """
+    
     def __init__(self):
+        """Initializes the VolunteerCoordinatorAgent."""
         pass
 
     def calculate_distance(self, p1: Dict[str, int], p2: Dict[str, int]) -> float:

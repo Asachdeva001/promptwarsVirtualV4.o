@@ -17,7 +17,16 @@ except ImportError:
     HAS_GENAI = False
 
 class CoordinatorAgent:
+    """
+    Coordinator Agent responsible for processing high-level operational intelligence.
+    
+    This agent parses natural language queries from the dashboard and orchestrates
+    risk assessments, generating structured summaries, confidence scores, and
+    actionable insights. It supports both Gemini LLM and deterministic fallback.
+    """
+    
     def __init__(self):
+        """Initializes the CoordinatorAgent and configures API credentials."""
         self.api_key = settings.GEMINI_API_KEY
         self.use_api = False
         self.model_name = "gemini-1.5-flash"
