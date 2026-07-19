@@ -258,4 +258,4 @@ class MockDatabase:
     def reset(self):
         pass # Firebase data usually isn't reset trivially this way in production
 
-db = StadiumDatabase()
+db = MockDatabase()

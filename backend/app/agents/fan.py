@@ -104,11 +104,20 @@ class FanExperienceAgent:
         """
         if self.use_api:
             try:
+                import random
+                volunteers = db.volunteers
+                idle_vols = [v for v in volunteers if v.get("status") == "Idle"]
+                assigned = idle_vols[0] if idle_vols else {"name": "Staff Team Alpha"}
+                eta = random.randint(2, 8)
+                
                 system_instruction = (
                     f"You are the StadiumOS Fan Mobile Assistant for the FIFA World Cup 2026. "
                     f"You answer fan questions politely and helpfully in the {lang} language. "
+                    f"If the user is requesting physical assistance, medical help, or a wheelchair at their location, "
+                    f"you MUST acknowledge their request, tell them that volunteer '{assigned['name']}' has been dispatched, "
+                    f"and they will arrive in approximately {eta} minutes. "
                     f"Always reply in JSON format with keys: 'response' (str) and 'category' (str). "
-                    f"Categories must be one of: Food, Restroom, Accessibility, Navigation, General."
+                    f"Categories must be one of: Food, Restroom, Accessibility, Navigation, General, HelpRequest."
                 )
                 
                 context = {
@@ -199,6 +208,16 @@ class FanExperienceAgent:
                 sector="104 to 112"
             )
             return {"response": response, "category": "Navigation"}
+
+        # 5. Direct Help Request
+        elif any(w in q for w in ["help", "assistance", "emergency", "ayuda", "hilfe", "aide", "مساعدة"]):
+            import random
+            volunteers = db.volunteers
+            idle_vols = [v for v in volunteers if v.get("status") == "Idle"]
+            assigned = idle_vols[0] if idle_vols else {"name": "Staff Team Alpha"}
+            eta = random.randint(2, 8)
+            response = f"Help request received. Volunteer {assigned['name']} has been dispatched to your location and will arrive in approximately {eta} minutes."
+            return {"response": response, "category": "HelpRequest"}
             
         # Default fallback
         else:

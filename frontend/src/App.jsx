@@ -4,12 +4,7 @@ import Onboarding from "./components/Onboarding";
 import { API_BASE_URL } from "./config";
 import { Shield, Sparkles, RefreshCw, Activity, Users, AlertTriangle, Play, Pause, Loader2 } from "lucide-react";
 
-// Lazy Loaded Components
-const OpsConsole = lazy(() => import("./components/OpsConsole"));
-const VolunteerList = lazy(() => import("./components/VolunteerList"));
 const FanMobile = lazy(() => import("./components/FanMobile"));
-const TransitPanel = lazy(() => import("./components/TransitPanel"));
-const CctvVision = lazy(() => import("./components/CctvVision"));
 
 const SectionLoader = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '20px' }}>
@@ -20,9 +15,6 @@ const SectionLoader = () => (
 export default function App() {
   const [stadiumId, setStadiumId] = useState(null); // null means onboarding mode
   const [stadiums, setStadiums] = useState([]);
-  
-  const [liveScores, setLiveScores] = useState([]);
-  const [currentScoreIndex, setCurrentScoreIndex] = useState(0);
 
   const [status, setStatus] = useState({
     active_stadium_id: "",
@@ -43,19 +35,6 @@ export default function App() {
   const [volunteers, setVolunteers] = useState([]);
   const [incidents, setIncidents] = useState([]);
   const [logs, setLogs] = useState([]);
-
-  // Fetch real live scores from backend
-  const fetchLiveScores = useCallback(async () => {
-    try {
-      const res = await fetch(`${API_BASE_URL}/api/live_scores`);
-      const data = await res.json();
-      if (data.success && data.matches.length > 0) {
-        setLiveScores(data.matches);
-      }
-    } catch (err) {
-      console.error("Failed to fetch live scores:", err);
-    }
-  }, []);
 
   // Fetch available stadiums list
   const fetchStadiums = useCallback(async () => {
@@ -124,22 +103,11 @@ export default function App() {
   // Initial load
   useEffect(() => {
     fetchStadiums();
-    fetchLiveScores();
   }, []);
 
   useEffect(() => {
     if (stadiumId) fetchTelemetry();
   }, [stadiumId]);
-
-  // Rotate live score every 5 seconds
-  useEffect(() => {
-    if (liveScores.length > 1) {
-      const interval = setInterval(() => {
-        setCurrentScoreIndex((prev) => (prev + 1) % liveScores.length);
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-  }, [liveScores]);
 
   // Periodic polling every 5s to fetch latest changes from backend
   useEffect(() => {
@@ -154,8 +122,6 @@ export default function App() {
     return <Onboarding onStadiumSelect={handleStadiumChange} />;
   }
 
-  const activeMatch = liveScores[currentScoreIndex] || { short_name: "Loading...", home_score: 0, away_score: 0, clock: "0'" };
-
   return (
     <div className="app-container">
       {/* Header Navbar */}
@@ -166,7 +132,7 @@ export default function App() {
           <span className="nav-badge">AI Assistant Hub</span>
         </div>
 
-        {/* Stadium Selector and Live Score Timeline Ticker */}
+        {/* Stadium Selector */}
         <div className="nav-middle" style={{ display: "flex", alignItems: "center", gap: 16 }}>
           <select 
             className="lang-selector" 
@@ -186,24 +152,6 @@ export default function App() {
               <option key={s.id} value={s.id}>{s.name} ({s.location})</option>
             ))}
           </select>
-
-          <div style={{
-            background: "rgba(255,255,255,0.03)",
-            border: "1px solid var(--border-glass)",
-            padding: "5px 12px",
-            borderRadius: "8px",
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-            fontSize: "13px",
-            minWidth: "220px",
-            justifyContent: "center"
-          }}>
-            <span style={{ fontWeight: 700, color: "var(--accent-green)" }}>LIVE:</span>
-            <span style={{ fontWeight: 500 }}>{activeMatch.short_name}</span>
-            <strong style={{ letterSpacing: "0.05em", color: "#fff" }}>{activeMatch.home_score} - {activeMatch.away_score}</strong>
-            <span style={{ color: "var(--text-secondary)" }}>{activeMatch.clock}</span>
-          </div>
         </div>
 
         <div className="nav-controls">
@@ -254,46 +202,9 @@ export default function App() {
         </section>
 
         {/* Dashboard Panels */}
-        {/* Focus on Communication: AI Console and Fan Copilot take center stage */}
-        <section className="glass-panel" style={{ gridColumn: "1 / span 2" }}>
-          <Suspense fallback={<SectionLoader />}>
-            <OpsConsole 
-              logs={logs}
-              onActionExecuted={fetchTelemetry}
-            />
-          </Suspense>
-        </section>
-
-        <section className="glass-panel fan-panel">
+        <section className="glass-panel fan-panel" style={{ gridColumn: "1 / span 3" }}>
           <Suspense fallback={<SectionLoader />}>
             <FanMobile />
-          </Suspense>
-        </section>
-
-        {/* Auxiliary panels */}
-        <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <Suspense fallback={<SectionLoader />}>
-            <VolunteerList 
-              incidents={incidents}
-              volunteers={volunteers}
-              onUpdate={fetchTelemetry}
-            />
-          </Suspense>
-        </section>
-
-        <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <Suspense fallback={<SectionLoader />}>
-            <TransitPanel 
-              stadiumId={stadiumId} 
-              matchMinute={0} 
-              onUpdateNeeded={fetchTelemetry} 
-            />
-          </Suspense>
-        </section>
-
-        <section className="glass-panel" style={{ display: "flex", flexDirection: "column" }}>
-          <Suspense fallback={<SectionLoader />}>
-            <CctvVision />
           </Suspense>
         </section>
       </main>

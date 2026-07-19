@@ -11,10 +11,6 @@ import secure
 
 from app.config import settings
 from app.database import db
-from app.agents.coordinator import coordinator_agent
-from app.agents.volunteer import volunteer_agent
-from app.agents.fan import fan_agent
-from app.services.live_scores import live_score_service
 from app.agents.fan import fan_agent
 
 app = FastAPI(
@@ -74,16 +70,11 @@ app.add_middleware(
 
 # Removed RerouteRequest
 
-class AssignRequest(BaseModel):
-    incident_id: str = Field(..., min_length=1, max_length=50, description="ID of the active incident")
-    volunteer_id: str = Field(..., min_length=1, max_length=50, description="ID of the volunteer being assigned")
-
-class IncidentStatusUpdateRequest(BaseModel):
-    incident_id: str = Field(..., min_length=1, max_length=50, description="ID of the active incident")
-    status: str = Field(..., min_length=1, max_length=50, pattern="^(Assigned|In Progress|Resolved)$", description="Target status")
-
-class CopilotQueryRequest(BaseModel):
-    query: str = Field(..., min_length=1, max_length=1000, description="Natural language question/prompt from organizer")
+class HelpRequest(BaseModel):
+    name: str = Field(..., min_length=2, max_length=100, description="Requester's name")
+    contact_number: str = Field(..., min_length=5, max_length=20, description="Requester's contact number")
+    assistance_type: str = Field(..., min_length=2, max_length=100, description="Type of assistance required (e.g., Medical, Directions)")
+    location: str = Field(..., min_length=2, max_length=200, description="Location or nearby landmark")
 
 class FanQueryRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000, description="Question from fan mobile app")
@@ -91,12 +82,6 @@ class FanQueryRequest(BaseModel):
 
 class SelectStadiumRequest(BaseModel):
     stadium_id: str = Field(..., min_length=1, max_length=50, description="ID of target World Cup stadium")
-
-class VisionInspectRequest(BaseModel):
-    camera_id: str = Field(..., min_length=1, max_length=50, description="CCTV Camera ID to inspect")
-
-class EgressRequest(BaseModel):
-    transit_id: str = Field(..., min_length=1, max_length=50, description="ID of congested public transit line")
 
 # --- API Endpoints ---
 
@@ -109,8 +94,7 @@ def read_root():
         "endpoints": {
             "status": "/api/status",
             "gates": "/api/gates",
-            "volunteers": "/api/volunteers",
-            "incidents": "/api/incidents"
+            "volunteers": "/api/volunteers"
         }
     }
 
@@ -127,74 +111,11 @@ def get_status_summary():
             detail=f"Failed to fetch status: {str(e)}"
         )
 
-@app.get("/api/live_scores")
-async def get_live_scores():
-    """Fetches real-time soccer scores from public ESPN API."""
-    try:
-        scores = await live_score_service.fetch_live_scores()
-        return {"success": True, "matches": scores}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch live scores: {str(e)}"
-        )
-
 @app.get("/api/volunteers")
 def get_volunteers():
     """Retrieve volunteer registry, current positions, workloads, and workloads."""
     try:
         return db.volunteers
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@app.get("/api/incidents")
-def get_incidents():
-    """Retrieve active and historical operational incidents."""
-    try:
-        return db.incidents
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@app.get("/api/incidents/{incident_id}/recommend")
-def get_volunteer_recommendations(incident_id: str):
-    """Compute nearest and most suitable volunteers for a specific incident."""
-    try:
-        res = volunteer_agent.recommend_volunteer(incident_id)
-        if not res["success"]:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=res["message"])
-        return res
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@app.post("/api/incidents/assign")
-def post_assign_volunteer(req: AssignRequest):
-    """Dispatch a volunteer to an active incident."""
-    try:
-        res = volunteer_agent.assign_volunteer(req.incident_id, req.volunteer_id)
-        if not res["success"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res["message"])
-        return res
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@app.post("/api/incidents/status")
-def post_update_incident_status(req: IncidentStatusUpdateRequest):
-    """Update status of a dispatch ticket (Assigned, In Progress, Resolved)."""
-    try:
-        res = volunteer_agent.update_incident_status(req.incident_id, req.status)
-        if not res["success"]:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=res["message"])
-        return res
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-@app.post("/api/copilot/query")
-@limiter.limit("5/minute")
-def post_copilot_query(request: Request, req: CopilotQueryRequest):
-    """Send natural language query to the Operations Copilot Agent."""
-    try:
-        res = coordinator_agent.process_organizer_query(req.query)
-        return res
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -205,6 +126,34 @@ def post_fan_query(request: Request, req: FanQueryRequest):
     try:
         res = fan_agent.handle_query(req.query, req.language)
         return res
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+@app.post("/api/help/request")
+@limiter.limit("5/minute")
+def post_help_request(request: Request, req: HelpRequest):
+    """Process a fan's help request and assign a volunteer."""
+    import random
+    try:
+        # Find an idle volunteer or use a fallback
+        volunteers = db.volunteers
+        idle_vols = [v for v in volunteers if v.get("status") == "Idle"]
+        assigned = idle_vols[0] if idle_vols else {"name": "Staff Team Alpha", "phone": "N/A", "specialty": "General Support"}
+        
+        # Calculate a mock ETA in minutes
+        eta_minutes = random.randint(2, 8)
+        
+        # In a real app we would save this to the DB, but here we just return the assignment.
+        return {
+            "success": True,
+            "message": "Help request received.",
+            "assigned_volunteer": {
+                "name": assigned.get("name", "Support Staff"),
+                "phone": assigned.get("phone", "N/A"),
+                "specialty": assigned.get("specialty", "General")
+            },
+            "eta_minutes": eta_minutes
+        }
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
@@ -259,122 +208,6 @@ def select_active_stadium(req: SelectStadiumRequest):
         db.active_id = req.stadium_id
         db.add_log("system", f"Switched context to {STADIUM_REGISTRY[req.stadium_id]['name']}.")
         return {"success": True, "active_stadium_id": db.active_id, "summary": db.get_status_summary()}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/api/transit")
-def get_local_transit():
-    """Retrieve local subway/bus status for active venue."""
-    try:
-        return db.transit
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/transit/balance")
-def balance_transit_flow(req: EgressRequest):
-    """Egress Action: deploy shuttle transit and balance flow."""
-    try:
-        target_transit = next((t for t in db.transit if t["id"] == req.transit_id), None)
-        if not target_transit:
-            raise HTTPException(status_code=404, detail="Transit line not found.")
-        
-        old_wait = target_transit["wait_time"]
-        target_transit["wait_time"] = max(5, target_transit["wait_time"] - 10)
-        target_transit["status"] = "Normal"
-        
-        db.add_log("system", f"Egress dispatch: Deployed auxiliary shuttles for {target_transit['name']}. Wait time reduced to {target_transit['wait_time']}m.")
-        return {"success": True, "transit": db.transit}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/vision/inspect")
-def inspect_cctv_frame(req: VisionInspectRequest):
-    """Inspect CCTV camera frame for safety obstructions."""
-    try:
-        camera_id = req.camera_id
-        stadium_id = db.active_id
-        
-        presets = {
-            "metlife": {
-                "cam_104": {
-                    "hazard_detected": True,
-                    "severity": "Critical",
-                    "hazard_type": "Crowd Bottleneck",
-                    "description": "Severe crowd bottleneck detected at Gate A concourse. Flow rate is under 35 persons/min due to turnstile scanner delays.",
-                    "action": "Execute Gate A to Gate B traffic diversion. Dispatch turnstile technician.",
-                    "confidence": 96
-                },
-                "cam_202": {
-                    "hazard_detected": True,
-                    "severity": "Critical",
-                    "hazard_type": "Obstruction",
-                    "description": "Safety hazard detected in Section 228: Dual industrial trash bins are blocking the emergency exit stairwell.",
-                    "action": "Dispatch nearby volunteer to clear obstruction immediately.",
-                    "confidence": 98
-                }
-            },
-            "azteca": {
-                "cam_104": {
-                    "hazard_detected": False,
-                    "severity": "Low",
-                    "hazard_type": "None",
-                    "description": "Azteca Concourse entry flow is optimal. No bottleneck threat detected.",
-                    "action": "Continue automated scanning.",
-                    "confidence": 94
-                },
-                "cam_202": {
-                    "hazard_detected": True,
-                    "severity": "Medium",
-                    "hazard_type": "Slippery Surface",
-                    "description": "Liquid spill detected near East Concourse restrooms. Moderate slip hazard for descending fans.",
-                    "action": "Dispatch cleanup volunteer to secure area.",
-                    "confidence": 91
-                }
-            },
-            "bc_place": {
-                "cam_104": {
-                    "hazard_detected": False,
-                    "severity": "Low",
-                    "hazard_type": "None",
-                    "description": "BC Place entry Gate A flow rate is normal.",
-                    "action": "Continue automated scanning.",
-                    "confidence": 95
-                },
-                "cam_202": {
-                    "hazard_detected": True,
-                    "severity": "Medium",
-                    "hazard_type": "Accessibility Blockage",
-                    "description": "Section 104 ADA elevator corridor is blocked by broadcast equipment cables.",
-                    "action": "Notify Facilities to relocate cables. Deploy volunteer to guide wheelchair users.",
-                    "confidence": 93
-                }
-            }
-        }
-        
-        report = presets.get(stadium_id, {}).get(camera_id, {
-            "hazard_detected": False,
-            "severity": "Low",
-            "hazard_type": "None",
-            "description": f"Camera {camera_id} area scanned. Crowd levels normal. No hazards found.",
-            "action": "Maintain routine CCTV polling.",
-            "confidence": 90
-        })
-        
-        if coordinator_agent.use_api:
-            try:
-                import google.generativeai as genai
-                model = genai.GenerativeModel("gemini-1.5-flash")
-                prompt = f"Rewrite this CCTV alert message to sound like a brief, highly professional military-grade or FIFA security dispatcher alert (1 sentence max): '{report['description']}'"
-                response = model.generate_content(prompt)
-                if response.text:
-                    report["description"] = response.text.strip()
-            except Exception:
-                pass
-                
-        if report["hazard_detected"]:
-            db.add_log("cctv", f"AI Vision Alert: {report['hazard_type']} detected on {camera_id.upper()}. Severity: {report['severity']}.")
-            
-        return {"success": True, "camera_id": camera_id, "report": report}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

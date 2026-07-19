@@ -1,8 +1,10 @@
 import React, { useState, memo } from "react";
-import { Send, Smartphone, Languages } from "lucide-react";
+import { Send, Smartphone, Languages, MessageSquare, HeartHandshake } from "lucide-react";
 import { API_BASE_URL } from "../config";
+import HelpRequestForm from "./HelpRequestForm";
 
 const FanMobile = memo(function FanMobile() {
+  const [activeTab, setActiveTab] = useState("chat"); // "chat" or "help"
   const [lang, setLang] = useState("en");
   const [query, setQuery] = useState("");
   const [messages, setMessages] = useState([
@@ -128,7 +130,24 @@ const FanMobile = memo(function FanMobile() {
           </div>
         </div>
 
-        <div className="mobile-chat-body">
+        <div style={{ display: "flex", background: "#151821", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+          <button 
+            onClick={() => setActiveTab("chat")}
+            style={{ flex: 1, padding: "10px", background: activeTab === "chat" ? "rgba(255,255,255,0.1)" : "transparent", color: activeTab === "chat" ? "white" : "var(--text-muted)", border: "none", borderBottom: activeTab === "chat" ? "2px solid var(--accent-purple)" : "2px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "12px", fontWeight: "600" }}
+          >
+            <MessageSquare size={14} /> Copilot Chat
+          </button>
+          <button 
+            onClick={() => setActiveTab("help")}
+            style={{ flex: 1, padding: "10px", background: activeTab === "help" ? "rgba(255,255,255,0.1)" : "transparent", color: activeTab === "help" ? "white" : "var(--text-muted)", border: "none", borderBottom: activeTab === "help" ? "2px solid var(--accent-blue)" : "2px solid transparent", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px", fontSize: "12px", fontWeight: "600" }}
+          >
+            <HeartHandshake size={14} /> Request Help
+          </button>
+        </div>
+
+        {activeTab === "chat" ? (
+          <>
+            <div className="mobile-chat-body">
           {messages.map((msg, idx) => (
             <div key={idx} className={`chat-bubble ${msg.sender}`}>
               {msg.text.split("\n").map((line, lIdx) => (
@@ -178,6 +197,12 @@ const FanMobile = memo(function FanMobile() {
             <Send size={12} />
           </button>
         </div>
+          </>
+        ) : (
+          <div style={{ flex: 1, overflowY: "auto", background: "#11131a" }}>
+            <HelpRequestForm />
+          </div>
+        )}
       </div>
     </div>
   );
